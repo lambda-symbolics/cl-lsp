@@ -1,0 +1,101 @@
+#+title: cl-lsp
+
+A Common Lisp client for stdio Language Server Protocol servers, extracted from
+Autolith. Use it to initialize a server, synchronize UTF-8 files, make JSON-RPC
+requests, and collect independent push and pull diagnostic reports.
+
+* Installation
+
+Use SBCL on Linux, macOS, or Windows. Dependencies are Bordeaux Threads,
+Flexi Streams, Quri, Serapeum, and Yason. ASDF supplies UIOP.
+
+Clone this repository into your ASDF source registry and install the dependencies
+with Quicklisp, or run =qlot install= in the checkout for the locked dependencies.
+Then load the system:
+
+#+begin_src lisp
+(asdf:load-system :cl-lsp)
+#+end_src
+
+* Client usage
+
+Supply the server command, its arguments, a language identifier, and an absolute
+project root. Initialization options and server settings are string-keyed JSON
+objects; construct them with =json-object=.
+
+#+begin_src lisp
+(let* ((root #p"/home/user/project/")
+       (server (make-instance 'cl-lsp:lsp-server-configuration
+                              :name "clangd"
+                              :command "clangd"
+                              :arguments '("--background-index")
+                              :extensions '(".c" ".h" ".cpp")
+                              :language-id "cpp"
+                              :timeout-seconds 10))
+       (client (cl-lsp:lsp-client-start server root
+                                       :client-name "My editor"
+                                       :client-version "1.0")))
+  (unwind-protect
+       (let* ((path (merge-pathnames "main.cpp" root))
+              (document (cl-lsp:lsp-client-sync client path))
+              (hover (cl-lsp:lsp-transport-request
+                      (cl-lsp:lsp-client-transport client) "textDocument/hover"
+                      (cl-lsp:json-object
+                       "textDocument" (cl-lsp:json-object "uri" (cl-lsp:lsp-path-uri path))
+                       "position" (cl-lsp:json-object "line" 0 "character" 0))
+                      :timeout 10)))
+         (values hover (cl-lsp:lsp-client-diagnostics client document :wait-seconds 1)))
+    (cl-lsp:lsp-client-close client)))
+#+end_src
+
+The default client identity is =cl-lsp= version =0.1.0=. Positions use zero-based
+UTF-16 units; =lsp-position= returns the position at the end of a string.
+=lsp-path-uri= percent-encodes an absolute native pathname, including Windows
+drive and UNC paths.
+
+Call =lsp-client-sync= after saving a file. The client sends open/change/save
+notifications according to the server's advertised synchronization mode.
+=lsp-client-resync= updates files already opened by that client.
+
+=lsp-client-diagnostics= returns a JSON object with =push= and =pull= reports.
+Each report records its =state=, =versioned= flag, =truncated= flag, and =items=.
+Push reports may be pending, received, or unversioned; an empty received report
+is distinct from a pending report. Explicitly stale versions are discarded.
+
+* Transport and client pools
+
+Use =lsp-transport-open= with =:command=, =:arguments=, =:directory=,
+=:request-handler=, and =:notification-handler= for a lower-level JSON-RPC
+connection. Call =lsp-transport-request= with a timeout, or
+=lsp-transport-notify= for a notification. Close it with =lsp-transport-close=.
+=lsp-read-message= and =lsp-write-message= accept binary streams for framed JSON.
+
+Use =lsp-manager-client= to reuse a live client for a server name/project root
+pair or restart a dead client. Construct =lsp-manager= with =:client-name= and
+=:client-version= to forward an application identity. Serialize pool access with
+=lsp-manager-lock= using Bordeaux Threads' recursive lock protocol. Call
+=lsp-manager-close= to close the pool.
+
+* Bounds and errors
+
+Configure the exported =*lsp-maximum-*= variables for header/body sizes,
+stderr retention, callback queues, documents, diagnostics, and client counts.
+Transport failures signal =lsp-error=; remote failures signal =lsp-rpc-error=;
+request deadlines signal =lsp-timeout=. Close clients in =unwind-protect=.
+
+JSON objects use hash tables, arrays use vectors, true uses =t=, null uses =nil=,
+and explicit false uses =yason:false=. Decoded false is retained internally as
+=:json-false= for lossless re-encoding. =json-get= presents it as =nil=;
+=json-get-present= additionally returns whether the key exists.
+
+* Tests
+
+Run =./script/check= from the checkout, or =sbcl --script script/check= on
+Windows. The same cases run through =(asdf:test-system :cl-lsp)= after loading
+the dependencies. They cover framing, actual subprocess lifecycle and cleanup,
+UTF-16 synchronization, diagnostic source independence, client reuse/restart,
+application identity, file URIs, and JSON value preservation.
+
+* License
+
+COLL-Attribution. See =LICENSE.lisp= for the complete terms.

@@ -1,0 +1,43 @@
+(in-package #:cl-lsp)
+
+;;;; -- URI and JSON Boundaries --
+
+(-> test-lsp-file-uris () null)
+(defun test-lsp-file-uris ()
+  "Exercise UTF-8 URI segments, drive letters, UNC hosts, and native paths."
+  (dolist (entry '(("C:\\src\\a b#%.lisp" "file:///C:/src/a%20b%23%25.lisp")
+                   ("D:\\žluť\\😀.txt" "file:///D:/%C5%BElu%C5%A5/%F0%9F%98%80.txt")
+                   ("\\\\server\\share\\a b.txt" "file://server/share/a%20b.txt")))
+    (tests--assert (string= (second entry) (lsp--windows-path-uri (first entry)))
+                   "Windows paths retain drive and UNC URI structure"))
+  (tests--assert (string= "/a%20b/%C5%BE%23%25%5C.txt"
+                          (lsp--encode-uri-path "/a b/ž#%\\.txt"))
+                 "path segments encode literal backslashes and reserved characters")
+  (with-test-directory (root)
+    (let ((uri (lsp-path-uri (merge-pathnames "a b.txt" root))))
+      (tests--assert (and (uiop:string-prefix-p "file:///" uri)
+                          (uiop:string-suffix-p uri "a%20b.txt"))
+                     "native absolute path produces a file URI")))
+  nil)
+
+(-> test-lsp-json-boundaries () null)
+(defun test-lsp-json-boundaries ()
+  "Round-trip JSON booleans, nulls, arrays, and reject trailing frame content."
+  (let* ((source "{\"false\":false,\"null\":null,\"true\":true,\"array\":[false,null,true],\"empty\":[]}")
+         (message (lsp--decode-message source))
+         (roundtrip (lsp--decode-message (lsp--octets-to-string (json-encode-utf8 message)))))
+    (dolist (object (list message roundtrip))
+      (tests--assert (and (eq (gethash "false" object) ':json-false)
+                          (null (gethash "null" object))
+                          (eq (gethash "true" object) t)
+                          (equalp (gethash "array" object) #(:json-false nil t))
+                          (equalp (gethash "empty" object) #()))
+                     "encoding preserves false, null, true and empty arrays")
+      (multiple-value-bind (value present-p) (json-get-present object "false")
+        (tests--assert (and (null value) present-p)
+                       "JSON accessors report false as a present NIL value"))))
+  (dolist (source '("{}{}" "{} trailing" "[]" "null" "{\"unterminated\":\"x}"))
+    (tests--assert (handler-case (progn (lsp--decode-message source) nil)
+                     (lsp-error () t))
+                   "frames contain exactly one complete JSON object"))
+  nil)

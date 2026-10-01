@@ -1,0 +1,16 @@
+#!/usr/bin/env -S sbcl --script
+(require :asdf)
+
+(let* ((root (uiop:pathname-parent-directory-pathname
+              (uiop:pathname-directory-pathname *load-truename*)))
+       (setup (merge-pathnames ".qlot/setup.lisp" root))
+       (quicklisp (merge-pathnames "quicklisp/setup.lisp" (user-homedir-pathname))))
+  (cond
+    ((probe-file setup)
+     (load setup))
+    ((probe-file quicklisp)
+     (load quicklisp)))
+  (asdf:load-asd (merge-pathnames "cl-lsp.asd" root))
+  (when (find-package '#:ql)
+    (uiop:symbol-call '#:ql '#:quickload ':cl-lsp :silent t))
+  (asdf:test-system ':cl-lsp))
