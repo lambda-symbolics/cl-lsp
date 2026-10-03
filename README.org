@@ -6,8 +6,10 @@ requests, and collect independent push and pull diagnostic reports.
 
 * Installation
 
-Use SBCL on Linux, macOS, or Windows. Dependencies are Bordeaux Threads,
-Flexi Streams, Quri, Serapeum, and Yason. ASDF supplies UIOP.
+Use SBCL on Linux, macOS, or Windows. Dependencies are argo, Bordeaux
+Threads, Quri, and Serapeum. ASDF supplies UIOP. JSON values follow argo's
+model: objects are string-keyed hash tables, arrays are vectors, false is
+=(argo:json-false)=, which =json-get= reads as NIL, and null is NIL.
 
 Clone this repository into your ASDF source registry and install the dependencies
 with Quicklisp, or run =qlot install= in the checkout for the locked dependencies.

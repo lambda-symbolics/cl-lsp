@@ -1,16 +1,17 @@
 (defpackage #:cl-lsp
   (:use #:cl)
   (:import-from #:serapeum #:->)
-  (:import-from #:yason #:false)
+  (:import-from #:argo
+                #:json-object #:json-object-p #:json-get #:json-get-present
+                #:json-false #:json-string= #:json-decode #:json-encode-utf8
+                #:json-error #:json-limit-exceeded #:json-limit-exceeded-limit
+                #:make-json-limits)
   (:import-from #:uiop #:process-alive-p)
   (:import-from #:bordeaux-threads
                 #:make-lock #:make-recursive-lock #:make-condition-variable
                 #:with-lock-held #:with-recursive-lock-held
                 #:condition-wait #:condition-notify
                 #:make-thread #:current-thread #:thread-alive-p #:destroy-thread)
-  (:import-from #:flexi-streams
-                #:make-in-memory-output-stream #:make-flexi-stream
-                #:get-output-stream-sequence)
   (:export
    #:json-object #:json-get #:json-get-present
    #:*lsp-maximum-header-bytes* #:*lsp-maximum-body-bytes*

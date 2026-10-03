@@ -43,27 +43,23 @@
   "Encode one string as UTF-8 octets."
   (sb-ext:string-to-octets string :external-format ':utf-8))
 
+(defparameter *lsp-json-limits* (make-json-limits :maximum-depth 64)
+  "The structural bounds checked before any LSP message value is built.")
+
 (-> lsp--decode-message (string) json-object)
 (defun lsp--decode-message (text)
-  "Decode exactly one JSON object after bounding nesting before parser recursion."
-  (let ((depth 0) (string-p nil) (escaped-p nil))
-    (loop for character across text
-          do (cond
-               (escaped-p (setf escaped-p nil))
-               ((and string-p (char= character #\\)) (setf escaped-p t))
-               ((char= character #\") (setf string-p (not string-p)))
-               ((not string-p)
-                (case character
-                  ((#\{ #\[)
-                   (when (> (incf depth) 64)
-                     (error 'lsp-error :message "LSP JSON nesting exceeds 64 levels.")))
-                  ((#\} #\]) (decf depth)))))))
-  (handler-case
-      (progn
-        (unless (json-object-source-p text)
-          (error 'lsp-error :message "LSP message must contain exactly one JSON object."))
-        (json-decode text))
-    (error () (error 'lsp-error :message "Malformed LSP JSON object."))))
+  "Decode exactly one JSON object, bounding nesting before any value is built."
+  (let ((message
+          (handler-case (json-decode text :limits *lsp-json-limits*)
+            (json-limit-exceeded (condition)
+              (error 'lsp-error
+                     :message (format nil "LSP JSON nesting exceeds ~D levels."
+                                      (json-limit-exceeded-limit condition))))
+            (json-error ()
+              (error 'lsp-error :message "Malformed LSP JSON object.")))))
+    (unless (json-object-p message)
+      (error 'lsp-error :message "LSP message must contain exactly one JSON object."))
+    message))
 
 (-> lsp-read-message (stream) (option json-object))
 (defun lsp-read-message (stream)

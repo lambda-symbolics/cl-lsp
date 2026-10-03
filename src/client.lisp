@@ -125,7 +125,7 @@
                           "name" (file-namestring
                                   (directory-namestring (lsp-client-root client))))))
     ((string= method "workspace/applyEdit")
-     (json-object "applied" yason:false
+     (json-object "applied" (json-false)
                   "failureReason" "This client does not accept server-driven workspace edits."))
     ((member method '("window/workDoneProgress/create" "window/showMessageRequest")
              :test #'string=)
@@ -197,12 +197,12 @@
                       (json-object
                        "general" (json-object "positionEncodings" (vector "utf-16"))
                        "workspace" (json-object "configuration" t "workspaceFolders" t
-                                                "applyEdit" yason:false)
+                                                "applyEdit" (json-false))
                        "textDocument"
                        (json-object
                         "synchronization" (json-object "didSave" t)
                         "publishDiagnostics" (json-object "versionSupport" t)
-                        "diagnostic" (json-object "dynamicRegistration" yason:false)
+                        "diagnostic" (json-object "dynamicRegistration" (json-false))
                         "hover" (json-object "contentFormat" (vector "markdown" "plaintext"))))
                       "initializationOptions"
                       (lsp-server-configuration-initialization-options configuration))
@@ -409,8 +409,8 @@
                                           "pull" (if pull-p
                                                      (lsp-diagnostic-report--state pull-report)
                                                      "unsupported"))
-                   "versioned" (if versioned-p t yason:false)
-                   "truncated" (if truncated-p t yason:false)
+                   "versioned" (if versioned-p t (json-false))
+                   "truncated" (if truncated-p t (json-false))
                    "items" items))))
 
 (-> lsp-client-diagnostics (lsp-client lsp-document &key (:wait-seconds real)) json-object)

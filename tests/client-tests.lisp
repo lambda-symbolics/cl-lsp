@@ -300,7 +300,7 @@
         (let ((report (lsp-client-diagnostics client document :wait-seconds 0)))
           (tests--assert
            (and (string= "unversioned" (json-get report "state"))
-                (eq false (json-get report "versioned")))
+                (argo:json-false-p (gethash "versioned" report)))
            "a versioned pull does not upgrade an unversioned push"))
         (let ((*lsp-maximum-diagnostics* 1))
           (publish (vector compiler-error))

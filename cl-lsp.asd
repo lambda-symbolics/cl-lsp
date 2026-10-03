@@ -3,12 +3,11 @@
   :author "Lukáš Hozda"
   :version "0.1.0"
   :license "COLL-Attribution"
-  :depends-on (#:bordeaux-threads #:flexi-streams #:quri #:serapeum #:yason)
+  :depends-on (#:argo #:bordeaux-threads #:quri #:serapeum)
   :serial t
   :components ((:module "src"
                 :serial t
                 :components ((:file "package")
-                             (:file "json")
                              (:file "configuration")
                              (:file "pathnames")
                              (:file "transport")
@@ -17,7 +16,7 @@
 
 (asdf:defsystem #:cl-lsp/tests
   :description "Independent transport, process, synchronization and diagnostic tests."
-  :depends-on (#:cl-lsp)
+  :depends-on (#:cl-lsp #:flexi-streams)
   :serial t
   :components ((:module "tests"
                 :serial t
