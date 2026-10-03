@@ -25,3 +25,47 @@
     (if (uiop:os-windows-p)
         (lsp--windows-path-uri name)
         (concatenate 'string "file://" (lsp--encode-uri-path name)))))
+
+
+;;;; -- Project Roots --
+
+(defparameter *lsp-maximum-root-depth* 64
+  "The maximum number of directories searched upward for a project root.")
+
+(-> lsp--marker-present-p (pathname string) boolean)
+(defun lsp--marker-present-p (directory marker)
+  "Return true when DIRECTORY holds a file or directory named MARKER literally."
+  (let ((candidate (merge-pathnames (uiop:parse-native-namestring marker)
+                                    directory)))
+    (and (or (uiop:file-exists-p candidate)
+             (uiop:directory-exists-p candidate))
+         t)))
+
+(-> lsp-project-root (pathname pathname list) pathname)
+(defun lsp-project-root (path workspace markers)
+  "Return the nearest directory holding one of MARKERS, from PATH up to WORKSPACE.
+
+PATH names a file, or a directory as a directory pathname, and WORKSPACE names
+a directory. Both must be absolute
+and canonical, with links already resolved, because containment is decided on
+their namestrings. MARKERS are literal file or directory names such as
+\"Cargo.toml\" or \".git\". The search stops at WORKSPACE and after
+*LSP-MAXIMUM-ROOT-DEPTH* directories. WORKSPACE is returned when PATH lies
+outside it or no marker is found."
+  (let* ((workspace (uiop:ensure-directory-pathname workspace))
+         (directory (if (uiop:directory-pathname-p path)
+                        path
+                        (uiop:pathname-directory-pathname path))))
+    (unless (uiop:string-prefix-p (namestring workspace) (namestring directory))
+      (return-from lsp-project-root workspace))
+    (loop repeat *lsp-maximum-root-depth*
+          for candidate = directory
+            then (uiop:pathname-parent-directory-pathname candidate)
+          when (some (lambda (marker) (lsp--marker-present-p candidate marker))
+                     markers)
+            return candidate
+          when (or (equal candidate workspace)
+                   (equal candidate
+                          (uiop:pathname-parent-directory-pathname candidate)))
+            return workspace
+          finally (return workspace))))

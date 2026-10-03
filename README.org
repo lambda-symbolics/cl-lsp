@@ -73,7 +73,9 @@ connection. Call =lsp-transport-request= with a timeout, or
 =lsp-read-message= and =lsp-write-message= accept binary streams for framed JSON.
 
 Use =lsp-manager-client= to reuse a live client for a server name/project root
-pair or restart a dead client. Construct =lsp-manager= with =:client-name= and
+pair or restart a dead client. =lsp-project-root= picks that root: the nearest
+directory between a file and the workspace holding one of the server's
+=:root-markers=, given canonical pathnames, falling back to the workspace. Construct =lsp-manager= with =:client-name= and
 =:client-version= to forward an application identity. Serialize pool access with
 =lsp-manager-lock= using Bordeaux Threads' recursive lock protocol. Call
 =lsp-manager-close= to close the pool.
@@ -81,7 +83,8 @@ pair or restart a dead client. Construct =lsp-manager= with =:client-name= and
 * Bounds and errors
 
 Configure the exported =*lsp-maximum-*= variables for header/body sizes,
-stderr retention, callback queues, documents, diagnostics, and client counts.
+stderr retention, callback queues, documents, diagnostics, client counts, and
+the project-root search depth.
 Transport failures signal =lsp-error=; remote failures signal =lsp-rpc-error=;
 request deadlines signal =lsp-timeout=. Close clients in =unwind-protect=.
 
