@@ -20,7 +20,11 @@
                  test-lsp-client-manager-reuse-restart-and-cleanup
                  test-lsp-file-uris
                  test-lsp-project-roots
-                 test-lsp-json-boundaries)))
+                 test-lsp-json-boundaries
+                 test-lsp-configuration-files
+                 test-lsp-text-positions
+                 test-lsp-client-queries
+                 test-lsp-manager-map-file)))
     (dolist (name cases)
       (handler-case
           (progn (funcall name) (format t "PASS ~(~A~)~%" name))

@@ -64,6 +64,33 @@ Each report records its =state=, =versioned= flag, =truncated= flag, and =items=
 Push reports may be pending, received, or unversioned; an empty received report
 is distinct from a pending report. Explicitly stale versions are discarded.
 
+* Configuration files and queries
+
+=lsp-read-configurations= reads a declarative server list from a file through a
+closed, byte-bounded grammar with no evaluation:
+
+#+begin_src lisp
+(:version 1
+ :servers ((:name "clangd" :command "clangd" :arguments ("--background-index")
+            :extensions (".c" ".h") :language-id "cpp" :root-markers ("compile_commands.json")
+            :settings "{\"clangd\": {}}" :timeout-seconds 10)))
+#+end_src
+
+=:initialization-options= and =:settings= are JSON object text, =:disabled-p=
+excludes a server from selection, and every bound is an exported
+=*lsp-configuration-*= variable. Malformed files signal
+=lsp-configuration-error=, which names the server and field when known.
+
+=lsp-configurations-for-path= selects the enabled servers handling a file by its
+extension, and =lsp-manager-map-file= runs a function with a synchronized client
+and document for each of them, rooted with =lsp-project-root= below a boundary,
+returning one =(:server :root :result)= or =(:server :error)= row per server.
+=lsp-client-query= runs one of the read-only =*lsp-query-operations*=
+(definition, references, hover, implementation, type definition, document and
+workspace symbols) after checking =lsp-client-supports-p=, and
+=lsp-text-position= turns a zero-based line and UTF-16 character into a protocol
+position, the inverse of =lsp-position=.
+
 * Transport and client pools
 
 Use =lsp-transport-open= with =:command=, =:arguments=, =:directory=,

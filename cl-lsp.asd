@@ -3,7 +3,7 @@
   :author "Lukáš Hozda"
   :version "0.1.0"
   :license "COLL-Attribution"
-  :depends-on (#:argo #:bordeaux-threads #:quri #:serapeum)
+  :depends-on (#:argo #:bordeaux-threads #:quri #:serapeum #:sexp-config)
   :serial t
   :components ((:module "src"
                 :serial t
@@ -11,7 +11,9 @@
                              (:file "configuration")
                              (:file "pathnames")
                              (:file "transport")
-                             (:file "client"))))
+                             (:file "configuration-file")
+                             (:file "client")
+                             (:file "queries"))))
   :in-order-to ((asdf:test-op (asdf:test-op #:cl-lsp/tests))))
 
 (asdf:defsystem #:cl-lsp/tests
@@ -24,6 +26,7 @@
                              (:file "transport-tests")
                              (:file "client-tests")
                              (:file "encoding-tests")
+                             (:file "declarative-tests")
                              (:file "test-cases"))))
   :perform (asdf:test-op (operation component)
              (declare (ignore operation component))

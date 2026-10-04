@@ -49,7 +49,18 @@
    #:lsp-manager-client #:lsp-manager-close #:lsp-manager-clients
    #:lsp-manager-configurations #:lsp-manager-loaded-p #:lsp-manager-lock
    #:*lsp-maximum-root-depth* #:lsp-project-root
-   #:lsp-path-uri #:lsp-position))
+   #:lsp-path-uri #:lsp-position
+   #:*lsp-configuration-version* #:*lsp-configuration-maximum-bytes*
+   #:*lsp-configuration-maximum-servers* #:*lsp-configuration-maximum-timeout-seconds*
+   #:*lsp-configuration-maximum-string-characters*
+   #:*lsp-configuration-maximum-list-elements*
+   #:lsp-configuration-error #:lsp-configuration-error-pathname
+   #:lsp-configuration-error-server-name #:lsp-configuration-error-field
+   #:lsp-configuration-error-cause #:lsp-read-configurations
+   #:lsp-text-position
+   #:*lsp-query-operations* #:*lsp-maximum-symbol-query-characters*
+   #:lsp-client-supports-p #:lsp-client-query
+   #:lsp-configurations-for-path #:lsp-manager-map-file))
 
 (in-package #:cl-lsp)
 

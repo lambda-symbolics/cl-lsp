@@ -24,3 +24,4 @@
    (disabled-p :initarg :disabled-p :initform nil :reader lsp-server-configuration-disabled-p :type boolean
                :documentation "Whether this entry is excluded from automatic selection."))
   (:documentation "One strict declarative LSP server configuration."))
+
