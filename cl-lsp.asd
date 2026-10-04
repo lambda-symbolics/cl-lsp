@@ -13,7 +13,8 @@
                              (:file "transport")
                              (:file "configuration-file")
                              (:file "client")
-                             (:file "queries"))))
+                             (:file "queries")
+                             (:file "workspace-edits"))))
   :in-order-to ((asdf:test-op (asdf:test-op #:cl-lsp/tests))))
 
 (asdf:defsystem #:cl-lsp/tests
@@ -27,6 +28,7 @@
                              (:file "client-tests")
                              (:file "encoding-tests")
                              (:file "declarative-tests")
+                             (:file "workspace-edit-tests")
                              (:file "test-cases"))))
   :perform (asdf:test-op (operation component)
              (declare (ignore operation component))

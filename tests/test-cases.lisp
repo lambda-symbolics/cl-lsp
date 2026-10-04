@@ -24,6 +24,8 @@
                  test-lsp-configuration-files
                  test-lsp-text-positions
                  test-lsp-client-queries
+                 test-lsp-workspace-edit-normalization
+                 test-lsp-workspace-edit-overlay
                  test-lsp-manager-map-file)))
     (dolist (name cases)
       (handler-case

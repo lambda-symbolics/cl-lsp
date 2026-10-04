@@ -1,0 +1,15 @@
+#+title: Semantic edit review
+
+* Inspected baselines
+- Upstream :: https://github.com/lambda-symbolics/cl-lsp.git, fetched 2026-10-05,
+  =9f459b8d3d41e6eeb82cae06159879cf7258701a=.
+- Installed Autolith library :: =cl-lsp-ref-5aa382d21564901457debaa194308ccea6cb35ec=,
+  inspected read-only alongside =src/lsp/tools.lisp= and roadmap C1.
+- Scope :: library protocol requests and normalized proposals only. Resource
+  approval, revisioned application and agent tools belong to the consumer.
+
+* Validation
+The library's pinned =sexp-config@71d665f3ae81038b6721cce37bfa62cedd52ba2c=
+provides the current file-reading API. The parent workspace has an older installed
+version. Tests use a separate pinned checkout under =.test-deps/sexp-config=,
+without modifying the parent dependency tree. NetBSD checks run with SBCL.

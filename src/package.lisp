@@ -60,6 +60,9 @@
    #:lsp-text-position
    #:*lsp-query-operations* #:*lsp-maximum-symbol-query-characters*
    #:lsp-client-supports-p #:lsp-client-query
+   #:lsp-protocol-error #:lsp-protocol-error-field
+   #:lsp-unsupported #:lsp-unsupported-operation
+   #:lsp-normalize-workspace-edit
    #:lsp-configurations-for-path #:lsp-manager-map-file))
 
 (in-package #:cl-lsp)

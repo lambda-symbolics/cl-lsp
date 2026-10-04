@@ -91,6 +91,34 @@ workspace symbols) after checking =lsp-client-supports-p=, and
 =lsp-text-position= turns a zero-based line and UTF-16 character into a protocol
 position, the inverse of =lsp-position=.
 
+* Workspace edit proposals
+
+=lsp-normalize-workspace-edit= validates an LSP =WorkspaceEdit= and returns a JSON
+object with =operations=, =annotations= and =positionEncoding=. It performs no
+host file reads or writes. Supply =:snapshot= as a function of a document URI,
+returning its initial text and document version as two values, or NIL/NIL for an
+absent document. Existing text edits require text; explicit versions require an
+exact match. Protocol ranges use UTF-16. Normalized =startOffset=/=endOffset=
+values count Common Lisp characters, with an exclusive end. Invalid ranges,
+surrogate splits, overlapping replacements, unknown annotations and stale
+versions signal =lsp-protocol-error= with a =field= reader.
+
+Each operation has one of these shapes:
+- =text=: =uri=, =version= (integer or null), =snapshotVersion=, and =edits=.
+  Each edit has =range=, =startOffset=, =endOffset=, =newText=, and optional
+  =annotationId=.
+- =create=/=delete=: =uri=, optional =options= and =annotationId=.
+- =rename=: =oldUri=, =newUri=, optional =options= and =annotationId=.
+
+=changes= maps are sorted by URI. =documentChanges= retain server order;
+subsequent ranges are validated against an in-memory overlay of preceding text
+and resource operations, including moved directory descendants. Simultaneous
+inserts at one position retain their array order. Initial snapshots are cached.
+Only negotiated UTF-16 is accepted. Keep annotation =needsConfirmation= metadata
+when presenting a proposal. The consumer observes affected resources, authorizes
+operations, verifies resource preconditions and applies the complete proposal
+through its own revision-aware resource protocol.
+
 * Transport and client pools
 
 Use =lsp-transport-open= with =:command=, =:arguments=, =:directory=,
