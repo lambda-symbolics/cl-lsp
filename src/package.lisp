@@ -63,6 +63,9 @@
    #:lsp-protocol-error #:lsp-protocol-error-field
    #:lsp-unsupported #:lsp-unsupported-operation
    #:lsp-normalize-workspace-edit
+   #:lsp-client-prepare-rename #:lsp-client-rename
+   #:lsp-client-code-actions #:lsp-client-resolve-code-action
+   #:lsp-client-will-rename-files
    #:lsp-configurations-for-path #:lsp-manager-map-file))
 
 (in-package #:cl-lsp)

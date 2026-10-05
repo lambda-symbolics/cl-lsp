@@ -119,6 +119,53 @@ when presenting a proposal. The consumer observes affected resources, authorizes
 operations, verifies resource preconditions and applies the complete proposal
 through its own revision-aware resource protocol.
 
+* Semantic requests
+
+Use synchronized =lsp-document= objects and zero-based protocol coordinates:
+
+#+begin_src lisp
+(cl-lsp:lsp-client-prepare-rename client document position)
+(cl-lsp:lsp-client-rename client document
+                         :position position :new-name "replacement"
+                         :snapshot snapshot-function)
+(cl-lsp:lsp-client-code-actions client document
+                               :range range :diagnostics #()
+                               :only #("quickfix") :trigger-kind 1
+                               :snapshot snapshot-function)
+(cl-lsp:lsp-client-resolve-code-action client raw-action
+                                      :snapshot snapshot-function)
+(cl-lsp:lsp-client-will-rename-files client rename-vector
+                                   :snapshot snapshot-function
+                                   :file-kind kind-function)
+#+end_src
+
+Rename preparation returns null, a validated =range= with character offsets and
+optional =placeholder=, or ={defaultBehavior:true}=. Rename and file preparation
+return normalized workspace proposals, including empty proposals for null server
+results. Code actions return a vector of rows containing =action= (the raw server
+object), =edit= (a normalized proposal or null), =command= (a proposed command or
+null) and =resolveSupported=. Pass a row's raw =action= to the resolve function;
+opaque =data= is forwarded unchanged. Preserve =disabled=, =isPreferred=,
+=diagnostics= and =kind= from the raw action when presenting choices. Commands
+are returned without execution.
+
+Omit =:snapshot= to use synchronized document text and versions copied before
+the request. Supply it for additional affected resources. File preparation accepts
+=rename-vector= as a vector of ={oldUri,newUri}= objects and applies advertised
+scheme, glob and file/folder filters. Standard =*=, =**=, =?=, brace alternatives,
+character sets and =ignoreCase= are supported. =kind-function= receives a URI and
+returns =:file= or =:folder=; it is required only for matching kind-specific filters.
+The caller schedules requested physical moves after the returned preparatory
+edits. No physical moves or completion notifications occur in this operation.
+
+Static capabilities gate every semantic request. Unsupported operations signal
+=lsp-unsupported= with an =operation= reader. Malformed results signal
+=lsp-protocol-error=; server RPC failures and deadlines retain =lsp-rpc-error= and
+=lsp-timeout=. Requests use the existing client transport and configured deadline.
+Initialization advertises UTF-16, rename preparation, literal code actions and
+resolution, annotated document/resource edits, and file-move preparation.
+Server-initiated =workspace/applyEdit= requests receive =applied:false=.
+
 * Transport and client pools
 
 Use =lsp-transport-open= with =:command=, =:arguments=, =:directory=,

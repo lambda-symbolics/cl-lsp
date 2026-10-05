@@ -196,22 +196,45 @@
                       "capabilities"
                       (json-object
                        "general" (json-object "positionEncodings" (vector "utf-16"))
-                       "workspace" (json-object "configuration" t "workspaceFolders" t
-                                                "applyEdit" (json-false))
+                       "workspace"
+                       (json-object "configuration" t "workspaceFolders" t
+                                    "applyEdit" (json-false)
+                                    "workspaceEdit"
+                                    (json-object "documentChanges" t
+                                                 "resourceOperations" (vector "create" "rename" "delete")
+                                                 "changeAnnotationSupport"
+                                                 (json-object "groupsOnLabel" (json-false)))
+                                    "fileOperations"
+                                    (json-object "dynamicRegistration" (json-false) "willRename" t))
                        "textDocument"
                        (json-object
                         "synchronization" (json-object "didSave" t)
                         "publishDiagnostics" (json-object "versionSupport" t)
                         "diagnostic" (json-object "dynamicRegistration" (json-false))
+                        "rename" (json-object "dynamicRegistration" (json-false)
+                                              "prepareSupport" t "prepareSupportDefaultBehavior" 1
+                                              "honorsChangeAnnotations" t)
+                        "codeAction"
+                        (json-object "dynamicRegistration" (json-false)
+                                     "codeActionLiteralSupport"
+                                     (json-object "codeActionKind"
+                                                  (json-object "valueSet"
+                                                               (vector "" "quickfix" "refactor"
+                                                                       "source")))
+                                     "isPreferredSupport" t "disabledSupport" t "dataSupport" t
+                                     "resolveSupport" (json-object "properties" (vector "edit" "command"))
+                                     "honorsChangeAnnotations" t)
                         "hover" (json-object "contentFormat" (vector "markdown" "plaintext"))))
                       "initializationOptions"
                       (lsp-server-configuration-initialization-options configuration))
                      :timeout (lsp-server-configuration-timeout-seconds configuration)))
                   (capabilities (and (hash-table-p reply) (json-get reply "capabilities"))))
-             (unless (hash-table-p capabilities)
-               (error 'lsp-error :message "Language server returned no initialize capabilities."))
-             (unless (string= (json-get capabilities "positionEncoding" "utf-16") "utf-16")
-               (error 'lsp-error :message "Language server did not negotiate UTF-16 positions."))
+             (unless (json-object-p capabilities)
+               (error 'lsp-protocol-error :field "capabilities"
+                      :message "Language server returned no initialize capabilities."))
+             (unless (equal (json-get capabilities "positionEncoding" "utf-16") "utf-16")
+               (error 'lsp-protocol-error :field "positionEncoding"
+                      :message "Language server did not negotiate UTF-16 positions."))
              (setf (lsp-client-capabilities client) capabilities))
            (lsp-transport-notify (lsp-client-transport client) "initialized" (json-object))
            (lsp-transport-notify

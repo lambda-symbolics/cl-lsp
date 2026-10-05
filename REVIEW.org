@@ -11,5 +11,18 @@
 * Validation
 The library's pinned =sexp-config@71d665f3ae81038b6721cce37bfa62cedd52ba2c=
 provides the current file-reading API. The parent workspace has an older installed
-version. Tests use a separate pinned checkout under =.test-deps/sexp-config=,
-without modifying the parent dependency tree. NetBSD checks run with SBCL.
+version. Tests use separate pinned checkouts under =.test-deps/sexp-config= and
+=.test-deps/argo= (=bd7415c7d6df61889147979c7c1964a0246a8f19=), without modifying
+the parent dependency tree. NetBSD checks run with SBCL.
+
+The library entry point passed 23 cases and 194 checks, including a real stdio
+fixture with capability negotiation, rename preparation, a denied server apply
+request, code-action resolution, file preparation, remote failure and cleanup.
+
+#+begin_src sh
+sbcl --noinform --load ../../.qlot/setup.lisp \
+  --eval '(push (truename ".test-deps/argo/") asdf:*central-registry*)' \
+  --eval '(push (truename ".test-deps/sexp-config/") asdf:*central-registry*)' \
+  --eval '(push (truename "./") asdf:*central-registry*)' \
+  --script script/check
+#+end_src
