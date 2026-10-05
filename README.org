@@ -97,8 +97,10 @@ position, the inverse of =lsp-position=.
 object with =operations=, =annotations= and =positionEncoding=. It performs no
 host file reads or writes. Supply =:snapshot= as a function of a document URI,
 returning its initial text and document version as two values, or NIL/NIL for an
-absent document. Existing text edits require text; explicit versions require an
-exact match. Protocol ranges use UTF-16. Normalized =startOffset=/=endOffset=
+absent document. Supply an optional third value, =:file=, =:folder= or =:missing=,
+when conditional resource operations involve folders. Existing text edits require
+text; explicit versions require an exact match. Protocol ranges use UTF-16.
+Normalized =startOffset=/=endOffset=
 values count Common Lisp characters, with an exclusive end. Invalid ranges,
 surrogate splits, overlapping replacements, unknown annotations and stale
 versions signal =lsp-protocol-error= with a =field= reader.
@@ -110,7 +112,8 @@ Each operation has one of these shapes:
 - =create=/=delete=: =uri=, optional =options= and =annotationId=.
 - =rename=: =oldUri=, =newUri=, optional =options= and =annotationId=.
 
-=changes= maps are sorted by URI. =documentChanges= retain server order;
+=changes= maps are sorted by URI. =documentChanges= retain server order and take
+precedence when both representations are supplied;
 subsequent ranges are validated against an in-memory overlay of preceding text
 and resource operations, including moved directory descendants. Simultaneous
 inserts at one position retain their array order. Initial snapshots are cached.
@@ -118,6 +121,10 @@ Only negotiated UTF-16 is accepted. Keep annotation =needsConfirmation= metadata
 when presenting a proposal. The consumer observes affected resources, authorizes
 operations, verifies resource preconditions and applies the complete proposal
 through its own revision-aware resource protocol.
+
+Configure =*lsp-maximum-workspace-operations*= (4096 by default) and
+=*lsp-maximum-workspace-edits*= (16384 simultaneous edits per document) to bound
+proposal normalization. Limit failures identify the affected protocol field.
 
 * Semantic requests
 
@@ -153,8 +160,9 @@ Omit =:snapshot= to use synchronized document text and versions copied before
 the request. Supply it for additional affected resources. File preparation accepts
 =rename-vector= as a vector of ={oldUri,newUri}= objects and applies advertised
 scheme, glob and file/folder filters. Standard =*=, =**=, =?=, brace alternatives,
-character sets and =ignoreCase= are supported. =kind-function= receives a URI and
-returns =:file= or =:folder=; it is required only for matching kind-specific filters.
+character sets and =ignoreCase= are supported. =kind-function= receives the source
+URI and returns =:file= or =:folder=, including when only the target path matches;
+it is required only for matching kind-specific filters.
 The caller schedules requested physical moves after the returned preparatory
 edits. No physical moves or completion notifications occur in this operation.
 

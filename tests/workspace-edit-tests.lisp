@@ -143,3 +143,61 @@
                     :snapshot (lambda (uri) (declare (ignore uri)) (values "x" 3)))))
        "noninteger and false versions do not pass as null")))
   nil)
+
+(defun test-lsp-workspace-edit-conditional-resources ()
+  "Validate conditional resource operations using folder observations and bounds."
+  (let* ((source "file:///old/a.txt")
+         (folder "file:///new")
+         (snapshot (lambda (uri)
+                     (cond ((equal uri source) (values "name" 4 :file))
+                           ((equal uri folder) (values nil nil :folder))
+                           (t (values nil nil :missing)))))
+         (move (json-object "kind" "rename" "oldUri" "file:///old" "newUri" folder
+                            "options" (json-object "ignoreIfExists" t)))
+         (change (edit-tests--document-change source (vector (edit-tests--edit 0 4 "new")) 4)))
+    (tests--assert (= (length (json-get
+                              (lsp-normalize-workspace-edit
+                               (json-object "documentChanges" (vector move change)) :snapshot snapshot)
+                              "operations")) 2)
+                   "ignored folder moves leave source document text and version available")
+    (tests--assert
+     (edit-tests--refused-p
+      (lambda () (lsp-normalize-workspace-edit
+                  (json-object "documentChanges"
+                               (vector (json-object "kind" "create" "uri" folder
+                                                    "options" (json-object "ignoreIfExists" t))
+                                       (edit-tests--document-change folder #())))
+                  :snapshot snapshot))) "ignored creates do not turn existing folders into text documents")
+    (tests--assert
+     (edit-tests--refused-p
+      (lambda () (lsp-normalize-workspace-edit
+                  (json-object "documentChanges" (vector change))
+                  :snapshot (lambda (uri) (declare (ignore uri)) (values "name" 4 :missing)))))
+     "inconsistent snapshot kind and content signal a protocol failure")
+    (tests--assert (= (length (json-get
+                              (lsp-normalize-workspace-edit
+                               (json-object "changes" (json-object "file:///unused" #())
+                                            "documentChanges" (vector change)) :snapshot snapshot)
+                              "operations")) 1)
+                   "the ordered versioned representation takes precedence over legacy changes")
+    (let ((*lsp-maximum-workspace-operations* 1))
+      (tests--assert
+       (edit-tests--refused-p
+        (lambda () (lsp-normalize-workspace-edit (json-object "documentChanges" (vector move change))
+                                                :snapshot snapshot)))
+       "oversized operation arrays are rejected before normalization"))
+    (let ((*lsp-maximum-workspace-edits* 1))
+      (tests--assert
+       (edit-tests--refused-p
+        (lambda () (lsp-normalize-workspace-edit
+                    (json-object "changes"
+                                 (json-object source (vector (edit-tests--edit 0 0 "a")
+                                                             (edit-tests--edit 0 0 "b"))))
+                    :snapshot snapshot))) "oversized text edit arrays are rejected"))
+    (tests--assert
+     (edit-tests--refused-p
+      (lambda () (lsp-normalize-workspace-edit
+                  (json-object "documentChanges"
+                               (vector (edit-tests--document-change source #() (expt 2 32))))
+                  :snapshot snapshot))) "document versions follow protocol signed integer bounds"))
+  nil)

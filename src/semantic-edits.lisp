@@ -187,7 +187,7 @@ Opaque server DATA is forwarded unchanged. Commands are never executed."
   "Prepare file moves and return related text/resource changes as a proposal.
 
 FILES is a vector of {oldUri,newUri}. Registration filters select matching moves;
-FILE-KIND receives a URI and returns :FILE or :FOLDER when a filter requires it.
+FILE-KIND receives the source URI and returns :FILE or :FOLDER when required.
 The requested physical moves are not added to the server's WorkspaceEdit; caller
 schedules those moves after these edits. No host writes or notifications occur."
   (let* ((capability (lsp-semantic--capability
@@ -203,10 +203,15 @@ schedules those moves after these edits. No host writes or notifications occur."
     (let ((selected
             (remove-if-not
              (lambda (file)
-               (some (lambda (filter)
-                       (or (lsp-file-filter--matches-p filter (json-get file "oldUri") file-kind)
-                           (lsp-file-filter--matches-p filter (json-get file "newUri") file-kind)))
-                     filters))
+               (let* ((old-uri (json-get file "oldUri"))
+                      (source-kind (when file-kind
+                                     (lambda (uri)
+                                       (declare (ignore uri))
+                                       (funcall file-kind old-uri)))))
+                 (some (lambda (filter)
+                         (or (lsp-file-filter--matches-p filter old-uri source-kind)
+                             (lsp-file-filter--matches-p filter (json-get file "newUri") source-kind)))
+                       filters)))
              files)))
       (lsp-semantic--normalize
        client (when (plusp (length selected))

@@ -16,7 +16,13 @@
 (-> lsp-edit--resource-operation (json-object json-object) json-object)
 (-> lsp-edit--apply-text (string vector) string)
 (-> lsp-edit--uri-below-p (string string) boolean)
-(-> lsp-edit--virtual-document (string list function) (values t t))
+(-> lsp-edit--virtual-document (string list function) (values t t t))
+
+(defparameter *lsp-maximum-workspace-operations* 4096
+  "Maximum operations in a normalized workspace proposal.")
+
+(defparameter *lsp-maximum-workspace-edits* 16384
+  "Maximum simultaneous text edits in one document operation.")
 
 (define-condition lsp-protocol-error (lsp-error)
   ((field :initarg :field :reader lsp-protocol-error-field
@@ -71,8 +77,9 @@
         (current-line 0)
         (current-column 0)
         (index 0))
-    (unless (and (typep line '(integer 0)) (typep column '(integer 0)))
-      (lsp-edit--invalid "position" "Positions need nonnegative integer coordinates."))
+    (unless (and (typep line '(integer 0 2147483647))
+                 (typep column '(integer 0 2147483647)))
+      (lsp-edit--invalid "position" "Positions need protocol unsigned-integer coordinates."))
     (loop
       (when (and (= current-line line) (= current-column column))
         (return-from lsp-edit--position-offset index))
@@ -132,14 +139,18 @@
 (defun lsp-edit--text-operation (uri version edits &key snapshot annotations)
   "Normalize simultaneous edits against a caller-provided immutable snapshot."
   (lsp-edit--uri uri)
-  (unless (or (null version) (integerp version))
-    (lsp-edit--invalid "version" "Document version must be an integer or null."))
+  (unless (or (null version) (typep version '(signed-byte 32)))
+    (lsp-edit--invalid "version" "Document version must be a protocol integer or null."))
   (lsp-edit--array edits "edits")
+  (when (> (length edits) *lsp-maximum-workspace-edits*)
+    (lsp-edit--invalid "edits" "Document text edit limit exceeded."))
   (unless snapshot
     (lsp-edit--invalid "snapshot" "Text edits require a caller-provided document snapshot."))
   (multiple-value-bind (text current-version) (funcall snapshot uri)
     (unless (stringp text)
       (lsp-edit--invalid "snapshot" "No text snapshot is available for an affected URI."))
+    (unless (or (null current-version) (typep current-version '(signed-byte 32)))
+      (lsp-edit--invalid "snapshotVersion" "Snapshot version must be a protocol integer or null."))
     (when (and version (not (eql version current-version)))
       (lsp-edit--invalid "version" "Workspace edit document version is stale or unknown."))
     (let* ((intervals nil)
@@ -198,8 +209,10 @@
   "Return an ordered JSON proposal without reading or writing host files.
 
 SNAPSHOT receives a URI and returns its initial text and document version as two
-values, or NIL/NIL for an absent document. Every existing text document requires
-a snapshot; versioned edits require an exact version. Offsets count Common Lisp
+values, or NIL/NIL for an absent document. An optional third value identifies
+:FILE, :FOLDER or :MISSING; folders need this value for conditional resource edits.
+Every existing text document requires a snapshot; versioned edits require an
+exact version. Offsets count Common Lisp
 characters, while ranges count UTF-16 units. Ordered changes are validated against
 an in-memory overlay, including creates, moves, deletes and preceding text edits.
 Initial snapshots are cached. Resource options and annotations are preserved;
@@ -219,7 +232,7 @@ EDIT yields an empty proposal. Only UTF-16 is negotiated."
                    (setf entry (multiple-value-list
                                 (if snapshot (funcall snapshot uri) (values nil nil)))
                          (gethash uri initial) entry))
-                 (values (first entry) (second entry))))
+                 (values (first entry) (second entry) (third entry))))
 
              (current-document (uri)
                (lsp-edit--virtual-document uri history #'initial-document))
@@ -235,14 +248,17 @@ EDIT yields an empty proposal. Only UTF-16 is negotiated."
                  (push operation operations))))
       (multiple-value-bind (changes changes-p) (json-get-present edit "changes")
         (multiple-value-bind (documents documents-p) (json-get-present edit "documentChanges")
-          (when (and changes-p documents-p)
-            (lsp-edit--invalid "workspaceEdit" "WorkspaceEdit contains both edit representations."))
-          (when changes-p
+          ;; Prefer the versioned, ordered representation when both are supplied.
+          (when (and changes-p (not documents-p))
             (lsp-edit--object changes "changes")
+            (when (> (hash-table-count changes) *lsp-maximum-workspace-operations*)
+              (lsp-edit--invalid "changes" "Workspace operation limit exceeded."))
             (dolist (uri (sort (loop for uri being the hash-keys of changes collect uri) #'string<))
               (text-operation uri nil (gethash uri changes))))
           (when documents-p
             (lsp-edit--array documents "documentChanges")
+            (when (> (length documents) *lsp-maximum-workspace-operations*)
+              (lsp-edit--invalid "documentChanges" "Workspace operation limit exceeded."))
             (loop for operation across documents
                   do (lsp-edit--object operation "documentChange")
                      (if (nth-value 1 (gethash "kind" operation))
@@ -284,9 +300,14 @@ EDIT yields an empty proposal. Only UTF-16 is negotiated."
                                 (concatenate 'string root "/")) uri)))
 
 (defun lsp-edit--virtual-document (uri history snapshot)
-  "Resolve URI's in-memory document after HISTORY, newest operation first."
+  "Return text, version and kind for URI after HISTORY, newest operation first."
   (if (null history)
-      (if snapshot (funcall snapshot uri) (values nil nil))
+      (multiple-value-bind (text version kind) (funcall snapshot uri)
+        (let ((kind (or kind (if text ':file ':missing))))
+          (unless (and (member kind '(:file :folder :missing))
+                       (if (eq kind ':file) (stringp text) (null text)))
+            (lsp-edit--invalid "snapshot" "Snapshot content and resource kind disagree."))
+          (values text version kind)))
       (let* ((operation (first history))
              (older (rest history))
              (kind (json-get operation "kind"))
@@ -295,31 +316,32 @@ EDIT yields an empty proposal. Only UTF-16 is negotiated."
              (ignore (and options (eq (json-get options "ignoreIfExists") t))))
         (cond
           ((and (equal kind "snapshot") (equal uri (json-get operation "uri")))
-           (values (json-get operation "text") (json-get operation "version")))
+           (values (json-get operation "text") (json-get operation "version") ':file))
           ((and (equal kind "create") (equal uri (json-get operation "uri")))
-           (multiple-value-bind (text version) (lsp-edit--virtual-document uri older snapshot)
-             (if (and ignore (not overwrite) text)
-                 (values text version)
-                 (values "" nil))))
+           (multiple-value-bind (text version resource-kind)
+               (lsp-edit--virtual-document uri older snapshot)
+             (if (and ignore (not overwrite) (not (eq resource-kind ':missing)))
+                 (values text version resource-kind)
+                 (values "" nil ':file))))
           ((and (equal kind "delete") (lsp-edit--uri-below-p uri (json-get operation "uri")))
-           (values nil nil))
+           (values nil nil ':missing))
           ((equal kind "rename")
            (let ((old (json-get operation "oldUri"))
                  (new (json-get operation "newUri")))
-             (multiple-value-bind (target target-version)
+             (multiple-value-bind (target target-version target-kind)
                  (if (and ignore (not overwrite))
                      (lsp-edit--virtual-document new older snapshot)
-                     (values nil nil))
+                     (values nil nil ':missing))
                (cond
-                 ((and ignore (not overwrite) target)
+                 ((and ignore (not overwrite) (not (eq target-kind ':missing)))
                   (if (equal uri new)
-                      (values target target-version)
+                      (values target target-version target-kind)
                       (lsp-edit--virtual-document uri older snapshot)))
                  ((lsp-edit--uri-below-p uri new)
                   (lsp-edit--virtual-document
                    (concatenate 'string old (subseq uri (length new))) older snapshot))
                  ((lsp-edit--uri-below-p uri old)
-                  (values nil nil))
+                  (values nil nil ':missing))
                  (t
                   (lsp-edit--virtual-document uri older snapshot))))))
           (t

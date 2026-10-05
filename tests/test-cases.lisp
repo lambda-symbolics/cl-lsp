@@ -26,8 +26,10 @@
                  test-lsp-client-queries
                  test-lsp-workspace-edit-normalization
                  test-lsp-workspace-edit-overlay
+                 test-lsp-workspace-edit-conditional-resources
                  test-lsp-semantic-proposals
                  test-lsp-file-operation-filters
+                 test-lsp-file-move-source-kind
                  test-lsp-semantic-process-boundary
                  test-lsp-manager-map-file)))
     (dolist (name cases)

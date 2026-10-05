@@ -15,9 +15,12 @@ version. Tests use separate pinned checkouts under =.test-deps/sexp-config= and
 =.test-deps/argo= (=bd7415c7d6df61889147979c7c1964a0246a8f19=), without modifying
 the parent dependency tree. NetBSD checks run with SBCL.
 
-The library entry point passed 23 cases and 194 checks, including a real stdio
+The library entry point passed 25 cases and 204 checks, including a real stdio
 fixture with capability negotiation, rename preparation, a denied server apply
 request, code-action resolution, file preparation, remote failure and cleanup.
+Conditional folder create/rename options use caller-provided resource kinds;
+file-move filters inspect the source kind even when only the destination matches.
+Normalization preserves ordered proposals and performs no host file writes.
 
 #+begin_src sh
 sbcl --noinform --load ../../.qlot/setup.lisp \

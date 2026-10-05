@@ -238,3 +238,28 @@
         (lsp-client-close client))
       (tests--assert (not (process-alive-p process)) "semantic fixture process is reaped")))
   nil)
+
+(defun test-lsp-file-move-source-kind ()
+  "Use the observed source kind when only the not-yet-existing target matches."
+  (let* ((client (lsp-client-tests--client #p"/" :capabilities (semantic-tests--capabilities)))
+         (old "file:///old.c")
+         (new "file:///new.txt")
+         (observations nil)
+         (sent nil))
+    (tests--call-with-replacements
+     (list (list 'lsp-transport-request
+                 (lambda (transport method params &key timeout)
+                   (declare (ignore transport method timeout))
+                   (setf sent params)
+                   nil)))
+     (lambda ()
+       (lsp-client-will-rename-files
+        client (vector (json-object "oldUri" old "newUri" new))
+        :file-kind (lambda (uri) (push uri observations) :file))))
+    (tests--assert (equal observations (list old)) "move type observation uses the source URI")
+    (tests--assert (= (length (json-get sent "files")) 1) "matching target path selects the source move")
+    (tests--assert
+     (lsp-file-filter--matches-p
+      (json-object "pattern" (json-object "glob" "/a+b.txt")) "file:///a+b.txt" nil)
+     "URI path decoding preserves literal plus characters"))
+  nil)
