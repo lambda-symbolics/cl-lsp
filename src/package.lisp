@@ -1,4 +1,5 @@
 (defpackage #:cl-lsp
+  (:documentation "Bounded clients for Language Server Protocol servers over stdio.")
   (:use #:cl)
   (:import-from #:serapeum #:->)
   (:import-from #:argo
