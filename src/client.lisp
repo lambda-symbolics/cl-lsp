@@ -255,7 +255,11 @@
           (lsp-transport-detach transport)
           (unwind-protect
                (when (lsp-transport-live-p transport)
+                 ;; A failed transport signals whatever condition stopped it,
+                 ;; and the close below runs either way.
+                 ; mallet:suppress no-ignore-errors -- the shutdown handshake is best effort
                  (ignore-errors (lsp-transport-request transport "shutdown" nil :timeout 1))
+                 ; mallet:suppress no-ignore-errors -- the shutdown handshake is best effort
                  (ignore-errors (lsp-transport-notify transport "exit" nil)))
             (lsp-transport-close transport)))
       (setf (lsp-client-transport client) nil)))

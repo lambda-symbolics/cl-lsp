@@ -309,9 +309,12 @@
                          (condition-wait (lsp-pending-condition pending) (lsp-transport-lock transport)
                                           :timeout remaining))))))
              (unless reply
-               (ignore-errors (lsp-transport--send transport
-                                (json-object "jsonrpc" "2.0" "method" "$/cancelRequest"
-                                             "params" (json-object "id" id)) :timeout 0.1))
+               (handler-case
+                   (lsp-transport--send transport
+                                        (json-object "jsonrpc" "2.0" "method" "$/cancelRequest"
+                                                     "params" (json-object "id" id))
+                                        :timeout 0.1)
+                 ((or lsp-error stream-error) () nil))
                (error 'lsp-timeout :message "LSP request timed out." :request-id id))
              (let ((remote-error (json-get reply "error")))
                (when remote-error
@@ -336,7 +339,8 @@
     (lsp-transport--fail transport (make-condition 'lsp-error :message "LSP transport closed."))
     (let ((process (lsp-transport-process transport)))
       (when process
-        (ignore-errors (close (lsp-transport-output transport) :abort t))
+        (handler-case (close (lsp-transport-output transport) :abort t)
+          (stream-error () nil))
         (flet ((wait-briefly ()
                  (let ((deadline (+ (get-internal-real-time) internal-time-units-per-second)))
                    (loop while (and (uiop:process-alive-p process)
@@ -344,15 +348,18 @@
                          do (sleep 0.01)))))
           (wait-briefly)
           (when (uiop:process-alive-p process)
+            ; mallet:suppress no-ignore-errors -- the reap below reports a server that survives
             (ignore-errors (uiop:terminate-process process))
             (wait-briefly))
           (when (uiop:process-alive-p process)
+            ; mallet:suppress no-ignore-errors -- the reap below reports a server that survives
             (ignore-errors (uiop:terminate-process process :urgent t))))
         (handler-case (sb-ext:with-timeout 1 (uiop:wait-process process))
           (sb-ext:timeout () (error 'lsp-error :message "Could not reap language server after termination.")))
         (setf (lsp-transport-process transport) nil)))
     (dolist (stream (list (lsp-transport-input transport) (lsp-transport-error-output transport)))
-      (ignore-errors (close stream :abort t)))
+      (handler-case (close stream :abort t)
+        (stream-error () nil)))
     (dolist (thread (lsp-transport-threads transport))
       (unless (eq thread (current-thread))
         (sb-thread:join-thread thread :timeout 0.5 :default nil)
@@ -367,7 +374,8 @@
   "Close inherited descriptors without flush, locks, process signals, waits, or callbacks."
   (dolist (stream (list (lsp-transport-input transport) (lsp-transport-output transport)
                         (lsp-transport-error-output transport)))
-    (ignore-errors (close stream :abort t)))
+    (handler-case (close stream :abort t)
+      (stream-error () nil)))
   (setf (lsp-transport-process transport) nil (lsp-transport-threads transport) nil
         (lsp-transport-callbacks transport) nil (lsp-transport-live-p transport) nil)
   (clrhash (lsp-transport-pending transport))
