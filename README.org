@@ -83,8 +83,9 @@ excludes a server from selection, and every bound is an exported
 
 =lsp-configurations-for-path= selects the enabled servers handling a file by its
 extension, and =lsp-manager-map-file= runs a function with a synchronized client
-and document for each of them, rooted with =lsp-project-root= below a boundary,
-returning one =(:server :root :result)= or =(:server :error)= row per server.
+and document for each of them, rooted with =lsp-project-root= below the
+=:boundary= directory, which defaults to the file's directory. It returns one
+=(:server :root :result)= or =(:server :error)= row per server.
 =lsp-client-query= runs one of the read-only =*lsp-query-operations*=
 (definition, references, hover, implementation, type definition, document and
 workspace symbols) after checking =lsp-client-supports-p=, and

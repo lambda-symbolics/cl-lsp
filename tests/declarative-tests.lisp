@@ -150,18 +150,19 @@
                          (lsp-client-tests--client root))))
              (list 'lsp-client-resync (lambda (client) client))
              (list 'lsp-client-sync (lambda (client path) (declare (ignore client)) path)))
-       (let ((rows (lsp-manager-map-file manager path root
+       (let ((rows (lsp-manager-map-file manager path
                                          (lambda (client document)
                                            (declare (ignore client))
-                                           (namestring document)))))
+                                           (namestring document))
+                                         :boundary root)))
          (tests--assert (and (= (length rows) 2)
                              (equal (getf (first rows) :result) (namestring path))
                              (equal (getf (first rows) :root) root)
                              (typep (getf (second rows) :error) 'lsp-error))
                         "each server answers or fails on its own")))
       (tests--assert (handler-case
-                         (progn (lsp-manager-map-file manager (merge-pathnames "x.md" root) root
-                                                      #'identity)
+                         (progn (lsp-manager-map-file manager (merge-pathnames "x.md" root)
+                                                      #'identity :boundary root)
                                 nil)
                        (lsp-error () t))
                      "a file no server handles fails")))

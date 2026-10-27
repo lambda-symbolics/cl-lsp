@@ -100,14 +100,16 @@ unknown operation, a capability the server did not advertise, or missing input."
                               (lsp-server-configuration-extensions configuration))))
                  configurations))
 
-(-> lsp-manager-map-file (lsp-manager pathname pathname function) list)
-(defun lsp-manager-map-file (manager path boundary function)
+(-> lsp-manager-map-file (lsp-manager pathname function &key (:boundary pathname)) list)
+(defun lsp-manager-map-file (manager path function
+                             &key (boundary (uiop:pathname-directory-pathname path)))
   "Call FUNCTION with a synchronized client and document for every server handling PATH.
 
 Servers come from MANAGER's configurations, each rooted at its nearest marker
-directory between PATH and BOUNDARY. Each server is independent: return one plist
-per server, (:SERVER NAME :ROOT ROOT :RESULT VALUE) or (:SERVER NAME :ERROR
-CONDITION). Signal LSP-ERROR when no enabled server handles PATH."
+directory between PATH and BOUNDARY, which defaults to PATH's directory. Each
+server is independent: return one plist per server, (:SERVER NAME :ROOT ROOT
+:RESULT VALUE) or (:SERVER NAME :ERROR CONDITION). Signal LSP-ERROR when no
+enabled server handles PATH."
   (with-recursive-lock-held ((lsp-manager-lock manager))
     (let ((configurations (lsp-configurations-for-path (lsp-manager-configurations manager)
                                                        path)))
