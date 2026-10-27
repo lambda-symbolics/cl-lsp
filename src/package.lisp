@@ -68,9 +68,3 @@
    #:lsp-client-code-actions #:lsp-client-resolve-code-action
    #:lsp-client-will-rename-files
    #:lsp-configurations-for-path #:lsp-manager-map-file))
-
-(in-package #:cl-lsp)
-
-(deftype option (type)
-  "An optional value of TYPE."
-  `(or null ,type))

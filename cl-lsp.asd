@@ -8,6 +8,7 @@
   :components ((:module "src"
                 :serial t
                 :components ((:file "package")
+                             (:file "types")
                              (:file "configuration")
                              (:file "pathnames")
                              (:file "transport")
