@@ -1,5 +1,7 @@
 (in-package #:cl-lsp)
 
+(-> lsp-client-tests--configuration (&key (:name string) (:command string))
+    lsp-server-configuration)
 (defun lsp-client-tests--configuration
        (&key (name "test") (command "test-lsp"))
   "Build a small server configuration for client tests."
@@ -8,6 +10,8 @@
                  :root-markers nil :initialization-options (json-object)
                  :settings (json-object) :timeout-seconds 1 :disabled-p nil))
 
+(-> lsp-client-tests--client (pathname &key (:capabilities (option json-object)) (:transport t))
+    lsp-client)
 (defun lsp-client-tests--client (root &key capabilities transport)
   "Build a client without starting a process."
   (let ((client
@@ -26,6 +30,7 @@
   "Run BODY while temporarily replacing the listed functions."
   `(tests--call-with-replacements ,replacements (lambda () ,@body)))
 
+(-> lsp-client-tests--write (pathname string string) pathname)
 (defun lsp-client-tests--write (configuration name text)
   "Write TEXT beneath CONFIGURATION's temporary workspace."
   (let ((path (merge-pathnames name configuration)))
@@ -36,6 +41,7 @@
       (write-string text stream))
     path))
 
+(-> test-lsp-client-position-and-sync-options nil boolean)
 (defun test-lsp-client-position-and-sync-options ()
   "Test UTF-16 positions and advertised synchronization modes."
   (lsp-client-tests--assert (= 3 (json-get (lsp-position "a😀") "character")))
@@ -54,6 +60,7 @@
        (lsp-client-tests--assert
         (and (= kind 1) open (json-get save "includeText")))))))
 
+(-> test-lsp-client-handshake-callbacks nil boolean)
 (defun test-lsp-client-handshake-callbacks ()
   "Test initialize negotiation and initialized notifications."
   (with-test-directory (configuration)
@@ -95,6 +102,7 @@
          (equal (reverse notifications)
                 '("initialized" "workspace/didChangeConfiguration"))))))))
 
+(-> test-lsp-client-full-and-incremental-sync nil boolean)
 (defun test-lsp-client-full-and-incremental-sync ()
   "Test full-document and ranged incremental synchronization notifications."
   (with-test-directory (configuration)
@@ -124,6 +132,7 @@
         (and (= (json-get end "line") 0) (= (json-get end "character") 5)
              (string= (json-get change "text") "hello!")))))))
 
+(-> test-lsp-client-diagnostics-and-stale-invalidation nil boolean)
 (defun test-lsp-client-diagnostics-and-stale-invalidation ()
   "Test stale diagnostic rejection and invalidation after source changes."
   (with-test-directory (configuration)
@@ -153,6 +162,7 @@
        (lsp-client-tests--assert
         (zerop (length (lsp-document-diagnostics document))))))))
 
+(-> test-lsp-client-document-bounds nil boolean)
 (defun test-lsp-client-document-bounds ()
   "Test document byte and open-document limits."
   (with-test-directory (configuration)
@@ -168,6 +178,7 @@
         (handler-case (progn (lsp-client-sync client path) nil)
                       (lsp-error nil t)))))))
 
+(-> test-lsp-client-diagnostics-push-pull nil boolean)
 (defun test-lsp-client-diagnostics-push-pull ()
   "Test pending versus empty push reports and pull diagnostics."
   (with-test-directory (configuration)
@@ -204,6 +215,7 @@
                 (zerop (length (json-get empty "items")))))
           (lsp-client-tests--assert (= 1 requests))))))))
 
+(-> test-lsp-client-manager-reuse-restart-and-cleanup nil boolean)
 (defun test-lsp-client-manager-reuse-restart-and-cleanup ()
   "Test lazy client reuse, dead-client restart, and manager cleanup."
   (with-test-directory (configuration)

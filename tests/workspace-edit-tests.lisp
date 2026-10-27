@@ -1,19 +1,23 @@
 (in-package #:cl-lsp)
 
+(-> edit-tests--range (integer integer) json-object)
 (defun edit-tests--range (start end)
   "Construct a one-line range from START to END UTF-16 units."
   (json-object "start" (json-object "line" 0 "character" start)
                "end" (json-object "line" 0 "character" end)))
 
+(-> edit-tests--edit (integer integer string) json-object)
 (defun edit-tests--edit (start end text)
   "Construct a one-line text edit."
   (json-object "range" (edit-tests--range start end) "newText" text))
 
+(-> edit-tests--refused-p (function &optional t) boolean)
 (defun edit-tests--refused-p (function &optional (type 'lsp-protocol-error))
   "Return true if FUNCTION signals TYPE."
   (handler-case (progn (funcall function) nil)
     (error (condition) (typep condition type))))
 
+(-> test-lsp-workspace-edit-normalization nil null)
 (defun test-lsp-workspace-edit-normalization ()
   "Exercise multi-file edits, versions, annotations and ordered resources."
   (let* ((uri "file:///a")
@@ -92,10 +96,12 @@
      "positions cannot lie inside CRLF"))
   nil)
 
+(-> edit-tests--document-change (string vector &optional t) json-object)
 (defun edit-tests--document-change (uri edits &optional version)
   "Construct a versioned document change."
   (json-object "textDocument" (json-object "uri" uri "version" version) "edits" edits))
 
+(-> test-lsp-workspace-edit-overlay nil null)
 (defun test-lsp-workspace-edit-overlay ()
   "Validate ordered creates, folder moves, repeated edits and deletes in memory."
   (let ((calls 0)
@@ -144,6 +150,7 @@
        "noninteger and false versions do not pass as null")))
   nil)
 
+(-> test-lsp-workspace-edit-conditional-resources nil null)
 (defun test-lsp-workspace-edit-conditional-resources ()
   "Validate conditional resource operations using folder observations and bounds."
   (let* ((source "file:///old/a.txt")

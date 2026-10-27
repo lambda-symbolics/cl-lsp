@@ -1,5 +1,6 @@
 (in-package #:cl-lsp)
 
+(-> semantic-tests--capabilities nil json-object)
 (defun semantic-tests--capabilities ()
   "Return static semantic capabilities for a fixture client."
   (let* ((filter (json-object "scheme" "file" "pattern"
@@ -11,6 +12,7 @@
                  "workspace" (json-object "fileOperations"
                                           (json-object "willRename" will-rename)))))
 
+(-> semantic-tests--document (lsp-client) lsp-document)
 (defun semantic-tests--document (client)
   "Register an in-memory fixture document without reading its path."
   (let* ((document (make-instance 'lsp-document :path #p"/fixture/a.txt" :text "name"))
@@ -18,6 +20,7 @@
     (setf (gethash uri (lsp-client-documents client)) document)
     document))
 
+(-> semantic-tests--workspace-edit (lsp-document) json-object)
 (defun semantic-tests--workspace-edit (document)
   "Return a fixture rename proposal for DOCUMENT and another URI."
   (json-object "documentChanges"
@@ -25,6 +28,7 @@
                         (lsp-path-uri (lsp-document-path document))
                         (vector (edit-tests--edit 0 4 "new")) 1))))
 
+(-> test-lsp-semantic-proposals nil null)
 (defun test-lsp-semantic-proposals ()
   "Exercise capability gates, params, normalized results and command preservation."
   (let* ((client (lsp-client-tests--client #p"/" :capabilities (semantic-tests--capabilities)))
@@ -118,6 +122,7 @@
           "malformed code actions signal typed protocol failures")))))
   nil)
 
+(-> test-lsp-file-operation-filters nil null)
 (defun test-lsp-file-operation-filters ()
   "Exercise LSP glob syntax, schemes, case options and kind observation."
   (dolist (case '(("**/*.txt" "/a.txt" t) ("**/*.txt" "/x/y/a.txt" t)
@@ -144,6 +149,7 @@
                    "matching kind-dependent filters require an observation callback"))
   nil)
 
+(-> semantic-tests--server-form nil list)
 (defun semantic-tests--server-form ()
   "Return a standalone ASCII fixture for negotiated semantic requests and errors."
   '(labels ((read-frame ()
@@ -195,6 +201,7 @@
                     ((search "shutdown" body) (reply identifier "null") (return))
                     (t (sb-ext:exit :code 7)))))))
 
+(-> test-lsp-semantic-process-boundary nil null)
 (defun test-lsp-semantic-process-boundary ()
   "Exercise semantic negotiation, callbacks, resolution and RPC failure on real pipes."
   (with-test-directory (root)
@@ -239,6 +246,7 @@
       (tests--assert (not (process-alive-p process)) "semantic fixture process is reaped")))
   nil)
 
+(-> test-lsp-file-move-source-kind nil null)
 (defun test-lsp-file-move-source-kind ()
   "Use the observed source kind when only the not-yet-existing target matches."
   (let* ((client (lsp-client-tests--client #p"/" :capabilities (semantic-tests--capabilities)))

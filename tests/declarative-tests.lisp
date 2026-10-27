@@ -2,6 +2,7 @@
 
 ;;;; -- Declarative Configuration, Positions, Queries and Fan-Out --
 
+(-> declarative-tests--error-field (pathname) keyword)
 (defun declarative-tests--error-field (pathname)
   "Return the field of the configuration error reading PATHNAME signals, or :NONE."
   (handler-case (progn (lsp-read-configurations pathname) :none)

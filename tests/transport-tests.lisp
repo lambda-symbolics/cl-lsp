@@ -1,5 +1,6 @@
 (in-package #:cl-lsp)
 
+(-> lsp-transport-tests--frame (t) (vector (unsigned-byte 8)))
 (defun lsp-transport-tests--frame (object)
   "Return OBJECT encoded as a native LSP frame."
   (let ((body (json-encode-utf8 object)))
@@ -9,6 +10,7 @@
                           #\Return #\Newline #\Return #\Newline))
                  body)))
 
+(-> test-lsp-transport-framing nil boolean)
 (defun test-lsp-transport-framing ()
   "Test UTF-8 framing, consecutive frames, and malformed input rejection."
   (let* ((object (json-object "jsonrpc" "2.0" "method" "žluť"))
@@ -42,6 +44,7 @@
       (lsp-error nil t))
      "malformed headers and truncated frames signal protocol failure")))
 
+(-> test-lsp-transport-write-frame nil boolean)
 (defun test-lsp-transport-write-frame ()
   "Round-trip a generated frame with multibyte Unicode content."
   (let ((stream (flexi-streams:make-in-memory-output-stream)))
