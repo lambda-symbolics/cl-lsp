@@ -3,8 +3,8 @@
 (-> semantic-tests--capabilities nil json-object)
 (defun semantic-tests--capabilities ()
   "Return static semantic capabilities for a fixture client."
-  (let* ((filter (json-object "scheme" "file" "pattern"
-                             (json-object "glob" "**/*.txt" "matches" "file")))
+  (let* ((filter      (json-object "scheme" "file" "pattern"
+                                  (json-object "glob" "**/*.txt" "matches" "file")))
          (will-rename (json-object "filters" (vector filter))))
     (json-object "positionEncoding" "utf-16"
                  "renameProvider" (json-object "prepareProvider" t)
@@ -16,7 +16,7 @@
 (defun semantic-tests--document (client)
   "Register an in-memory fixture document without reading its path."
   (let* ((document (make-instance 'lsp-document :path #p"/fixture/a.txt" :text "name"))
-         (uri (lsp-path-uri (lsp-document-path document))))
+         (uri      (lsp-path-uri (lsp-document-path document))))
     (setf (gethash uri (lsp-client-documents client)) document)
     document))
 
@@ -31,14 +31,14 @@
 (-> test-lsp-semantic-proposals nil null)
 (defun test-lsp-semantic-proposals ()
   "Exercise capability gates, params, normalized results and command preservation."
-  (let* ((client (lsp-client-tests--client #p"/" :capabilities (semantic-tests--capabilities)))
-         (document (semantic-tests--document client))
-         (position (json-object "line" 0 "character" 1))
-         (calls nil)
-         (reply nil)
+  (let* ((client     (lsp-client-tests--client #p"/" :capabilities (semantic-tests--capabilities)))
+         (document   (semantic-tests--document client))
+         (position   (json-object "line" 0 "character" 1))
+         (calls      nil)
+         (reply      nil)
          (raw-action (json-object "title" "Fix name" "kind" "quickfix"
                                   "data" (json-object "ticket" "opaque")))
-         (command (json-object "title" "Build" "command" "fixture.build" "arguments" (vector 1))))
+         (command    (json-object "title" "Build" "command" "fixture.build" "arguments" (vector 1))))
     (tests--call-with-replacements
      (list (list 'lsp-transport-request
                  (lambda (transport method params &key timeout)
@@ -61,14 +61,14 @@
                       "null preparation reports no rename target")
        (setf reply (semantic-tests--workspace-edit document))
        (tests--assert (= (length (json-get (lsp-client-rename client document :position position
-                                                           :new-name "new") "operations")) 1)
+                                                           :new-name                    "new") "operations")) 1)
                       "rename normalizes against synchronized text")
        (tests--assert (equal (json-get (rest (first calls)) "newName") "new")
                       "rename forwards the proposed symbol name")
        (setf reply (vector raw-action command
                            (json-object "title" "Immediate" "edit" (semantic-tests--workspace-edit document)
                                         "disabled" (json-object "reason" "Needs review"))))
-       (let ((rows (lsp-client-code-actions client document :range (edit-tests--range 0 4)
+       (let ((rows (lsp-client-code-actions client document :range  (edit-tests--range 0 4)
                                                               :only (vector "quickfix"))))
          (tests--assert (= (length rows) 3) "code action and command union is normalized")
          (tests--assert (eq (json-get (aref rows 0) "action") raw-action)
@@ -81,8 +81,8 @@
          (setf reply (json-object "title" "Fix name" "data" (json-get raw-action "data")
                                   "edit" (semantic-tests--workspace-edit document)))
          (tests--assert (json-object-p
-                        (json-get (lsp-client-resolve-code-action client (json-get (aref rows 0) "action"))
-                                  "edit")) "resolved action edits are normalized")
+                         (json-get (lsp-client-resolve-code-action client (json-get (aref rows 0) "action"))
+                                   "edit")) "resolved action edits are normalized")
          (tests--assert (eq (rest (first calls)) raw-action) "resolution forwards raw action including DATA"))
        (setf reply (semantic-tests--workspace-edit document))
        (let ((plan (lsp-client-will-rename-files
@@ -94,9 +94,9 @@
                         "registration filters select file moves"))
        (let ((count (length calls)))
          (tests--assert (zerop (length (json-get
-                                       (lsp-client-will-rename-files
-                                        client (vector (json-object "oldUri" "file:///a.c" "newUri" "file:///b.c")))
-                                       "operations"))) "unmatched file moves yield an empty proposal")
+                                        (lsp-client-will-rename-files
+                                         client (vector (json-object "oldUri" "file:///a.c" "newUri" "file:///b.c")))
+                                        "operations"))) "unmatched file moves yield an empty proposal")
          (tests--assert (= count (length calls)) "unmatched moves produce no server request"))
        (dolist (capability (list nil (json-false) t))
          (setf (lsp-client-capabilities client) (json-object "renameProvider" capability))
@@ -145,7 +145,7 @@
     (tests--assert (not (lsp-file-filter--matches-p filter "untitled:///a.txt" nil))
                    "URI schemes restrict filters")
     (tests--assert (edit-tests--refused-p
-                   (lambda () (lsp-file-filter--matches-p filter "file:///a.txt" nil)))
+                    (lambda () (lsp-file-filter--matches-p filter "file:///a.txt" nil)))
                    "matching kind-dependent filters require an observation callback"))
   nil)
 
@@ -197,9 +197,12 @@
                      (reply identifier "{\"title\":\"Fix\",\"edit\":{\"changes\":{\"file:///fixture/a.txt\":[{\"range\":{\"start\":{\"line\":0,\"character\":0},\"end\":{\"line\":0,\"character\":4}},\"newText\":\"fixed\"}]}}}"))
                     ((search "textDocument/codeAction" body)
                      (reply identifier "[{\"title\":\"Fix\",\"data\":{\"ticket\":\"opaque\"}}]"))
-                    ((search "workspace/willRenameFiles" body) (reply identifier "null"))
-                    ((search "shutdown" body) (reply identifier "null") (return))
-                    (t (sb-ext:exit :code 7)))))))
+                    ((search "workspace/willRenameFiles" body)
+                     (reply identifier "null"))
+                    ((search "shutdown" body)
+                     (reply identifier "null") (return))
+                    (t
+                     (sb-ext:exit :code 7)))))))
 
 (-> test-lsp-semantic-process-boundary nil null)
 (defun test-lsp-semantic-process-boundary ()
@@ -207,17 +210,17 @@
   (with-test-directory (root)
     (let* ((configuration
              (make-instance 'lsp-server-configuration :name "semantic-fixture"
-                            :command (namestring sb-ext:*runtime-pathname*)
-                            :arguments (list "--noinform" "--disable-debugger" "--no-sysinit"
-                                             "--no-userinit" "--non-interactive" "--eval"
-                                             (with-standard-io-syntax
-                                               (let ((*package* (find-package '#:cl-lsp)))
-                                                 (prin1-to-string (semantic-tests--server-form)))))
+                            :command                        (namestring sb-ext:*runtime-pathname*)
+                            :arguments                      (list "--noinform" "--disable-debugger" "--no-sysinit"
+                                                                  "--no-userinit" "--non-interactive" "--eval"
+                                                                  (with-standard-io-syntax
+                                                                    (let ((*package* (find-package '#:cl-lsp)))
+                                                                      (prin1-to-string (semantic-tests--server-form)))))
                             :extensions '(".txt") :language-id "text" :timeout-seconds 5))
-           (client (lsp-client-start configuration root))
+           (client   (lsp-client-start configuration root))
            (document (semantic-tests--document client))
            (position (json-object "line" 0 "character" 1))
-           (process (lsp-transport-process (lsp-client-transport client))))
+           (process  (lsp-transport-process (lsp-client-transport client))))
       (unwind-protect
            (progn
              (tests--assert (= (json-get (lsp-client-prepare-rename client document position) "endOffset") 4)
@@ -226,17 +229,17 @@
                                                                   :position position :new-name "new")
                                                  "operations")) 1)
                             "rename handles server applyEdit denial before returning a proposal")
-             (let* ((rows (lsp-client-code-actions client document :range (edit-tests--range 0 4)))
+             (let* ((rows     (lsp-client-code-actions client document :range (edit-tests--range 0 4)))
                     (resolved (lsp-client-resolve-code-action client (json-get (aref rows 0) "action"))))
                (tests--assert (equal (json-get (aref (json-get
-                                                   (aref (json-get (json-get resolved "edit") "operations") 0)
-                                                   "edits") 0) "newText") "fixed")
+                                                      (aref (json-get (json-get resolved "edit") "operations") 0)
+                                                      "edits") 0) "newText") "fixed")
                               "real code action resolution preserves opaque data and returns edits"))
              (tests--assert (zerop (length (json-get
-                                           (lsp-client-will-rename-files
-                                            client (vector (json-object "oldUri" "file:///a.txt"
-                                                                        "newUri" "file:///b.txt")))
-                                           "operations"))) "null file rename result is an empty proposal")
+                                            (lsp-client-will-rename-files
+                                             client (vector (json-object "oldUri" "file:///a.txt"
+                                                                         "newUri" "file:///b.txt")))
+                                            "operations"))) "null file rename result is an empty proposal")
              (tests--assert
               (handler-case
                   (progn (lsp-client-rename client document :position position :new-name "forbidden") nil)
@@ -249,11 +252,11 @@
 (-> test-lsp-file-move-source-kind nil null)
 (defun test-lsp-file-move-source-kind ()
   "Use the observed source kind when only the not-yet-existing target matches."
-  (let* ((client (lsp-client-tests--client #p"/" :capabilities (semantic-tests--capabilities)))
-         (old "file:///old.c")
-         (new "file:///new.txt")
+  (let* ((client       (lsp-client-tests--client #p"/" :capabilities (semantic-tests--capabilities)))
+         (old          "file:///old.c")
+         (new          "file:///new.txt")
          (observations nil)
-         (sent nil))
+         (sent         nil))
     (tests--call-with-replacements
      (list (list 'lsp-transport-request
                  (lambda (transport method params &key timeout)

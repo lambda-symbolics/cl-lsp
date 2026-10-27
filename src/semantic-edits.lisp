@@ -10,7 +10,7 @@
                       path :initial-value (lsp-client-capabilities client))))
     (unless (or (eq value t) (json-object-p value))
       (error 'lsp-unsupported :operation operation
-             :message (format nil "Language server does not advertise ~A." operation)))
+             :message                    (format nil "Language server does not advertise ~A." operation)))
     value))
 
 (-> lsp-semantic--request (lsp-client string json-object) t)
@@ -45,7 +45,7 @@
 (defun lsp-semantic--normalize (client edit snapshot)
   "Validate EDIT against supplied or synchronized snapshots."
   (lsp-normalize-workspace-edit
-   edit :snapshot (lsp-semantic--snapshot client snapshot)
+   edit :snapshot     (lsp-semantic--snapshot client snapshot)
    :position-encoding (json-get (lsp-client-capabilities client) "positionEncoding" "utf-16")))
 
 (-> lsp-client-prepare-rename (lsp-client lsp-document json-object) t)
@@ -65,7 +65,7 @@ Return {range, startOffset, endOffset, placeholder?} for explicit ranges, or
          (lsp-edit--invalid "defaultBehavior" "Preparation defaultBehavior must be true."))
        (json-object "defaultBehavior" t))
       (t
-       (let* ((range (json-get result "range" result))
+       (let* ((range      (json-get result "range" result))
               (normalized (json-object "range" range)))
          (multiple-value-bind (start end) (lsp-edit--range (lsp-document-text document) range)
            (setf (gethash "startOffset" normalized) start
@@ -89,7 +89,7 @@ SNAPSHOT supplies text and document version for affected URIs not synchronized b
 CLIENT. No command or edit is applied. Authority belongs to the caller."
   (lsp-semantic--capability client "rename" "renameProvider")
   (lsp-edit--string new-name "newName")
-  (let ((params (lsp-semantic--document-params document position))
+  (let ((params   (lsp-semantic--document-params document position))
         (snapshot (lsp-semantic--snapshot client snapshot)))
     (setf (gethash "newName" params) new-name)
     (lsp-semantic--normalize client
@@ -101,11 +101,11 @@ CLIENT. No command or edit is applied. Authority belongs to the caller."
   (lsp-edit--object action "codeAction")
   (unless (stringp (json-get action "title"))
     (lsp-edit--invalid "title" "A code action or command requires a string title."))
-  (let* ((command (gethash "command" action))
+  (let* ((command        (gethash "command" action))
          (command-only-p (stringp command))
-         (disabled (gethash "disabled" action))
-         (provider (json-get (lsp-client-capabilities client) "codeActionProvider"))
-         (resolve-p (and (json-object-p provider) (eq (json-get provider "resolveProvider") t))))
+         (disabled       (gethash "disabled" action))
+         (provider       (json-get (lsp-client-capabilities client) "codeActionProvider"))
+         (resolve-p      (and (json-object-p provider) (eq (json-get provider "resolveProvider") t))))
     (when command
       (if command-only-p
           (lsp-edit--string command "command")
@@ -151,7 +151,7 @@ null, and RESOLVESUPPORTED. Caller retains disabled/review metadata in ACTION."
   (lsp-edit--array diagnostics "diagnostics")
   (unless (member trigger-kind '(1 2))
     (lsp-edit--invalid "triggerKind" "Code action trigger kind must be 1 or 2."))
-  (let ((context (json-object "diagnostics" diagnostics "triggerKind" trigger-kind))
+  (let ((context  (json-object "diagnostics" diagnostics "triggerKind" trigger-kind))
         (snapshot (lsp-semantic--snapshot client snapshot)))
     (when only
       (lsp-edit--array only "only")
@@ -191,9 +191,9 @@ The requested physical moves are not added to the server's WorkspaceEdit; caller
 schedules those moves after these edits. No host writes or notifications occur."
   (let* ((capability (lsp-semantic--capability
                       client "will-rename-files" "workspace" "fileOperations" "willRename"))
-         (filters (lsp-edit--array (json-get (lsp-edit--object capability "willRename") "filters")
-                                  "filters"))
-         (snapshot (lsp-semantic--snapshot client snapshot)))
+         (filters    (lsp-edit--array (json-get (lsp-edit--object capability "willRename") "filters")
+                                     "filters"))
+         (snapshot   (lsp-semantic--snapshot client snapshot)))
     (lsp-edit--array files "files")
     (loop for file across files
           do (lsp-edit--object file "fileRename")
@@ -202,7 +202,7 @@ schedules those moves after these edits. No host writes or notifications occur."
     (let ((selected
             (remove-if-not
              (lambda (file)
-               (let* ((old-uri (json-get file "oldUri"))
+               (let* ((old-uri     (json-get file "oldUri"))
                       (source-kind (when file-kind
                                      (lambda (uri)
                                        (declare (ignore uri))

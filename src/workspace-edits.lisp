@@ -62,11 +62,11 @@
 (defun lsp-edit--position-offset (text position)
   "Validate a UTF-16 POSITION and return its character offset in TEXT."
   (lsp-edit--object position "position")
-  (let ((line (json-get position "line"))
-        (column (json-get position "character"))
-        (current-line 0)
+  (let ((line           (json-get position "line"))
+        (column         (json-get position "character"))
+        (current-line   0)
         (current-column 0)
-        (index 0))
+        (index          0))
     (unless (and (typep line '(integer 0 2147483647))
                  (typep column '(integer 0 2147483647)))
       (lsp-edit--invalid "position" "Positions need protocol unsigned-integer coordinates."))
@@ -93,7 +93,7 @@
   "Return start and end offsets for RANGE in TEXT, rejecting reversed ranges."
   (lsp-edit--object range "range")
   (let ((start (lsp-edit--position-offset text (json-get range "start")))
-        (end (lsp-edit--position-offset text (json-get range "end"))))
+        (end   (lsp-edit--position-offset text (json-get range "end"))))
     (when (> start end) (lsp-edit--invalid "range" "Edit range is reversed."))
     (values start end)))
 
@@ -179,13 +179,15 @@
 (-> lsp-edit--resource-operation (json-object json-object) json-object)
 (defun lsp-edit--resource-operation (operation annotations)
   "Normalize one create, rename or delete operation with its standard options."
-  (let* ((kind (json-get operation "kind"))
-         (result (json-object "kind" kind))
+  (let* ((kind         (json-get operation "kind"))
+         (result       (json-object "kind" kind))
          (option-names (cond
                          ((member kind '("create" "rename") :test #'equal)
                           '("overwrite" "ignoreIfExists"))
-                         ((equal kind "delete") '("recursive" "ignoreIfNotExists"))
-                         (t (lsp-edit--invalid "kind" "Unknown resource operation.")))))
+                         ((equal kind "delete")
+                          '("recursive" "ignoreIfNotExists"))
+                         (t
+                          (lsp-edit--invalid "kind" "Unknown resource operation.")))))
     (dolist (field (if (equal kind "rename") '("oldUri" "newUri") '("uri")))
       (setf (gethash field result) (lsp-edit--uri (json-get operation field))))
     (multiple-value-bind (options present-p) (json-get-present operation "options")
@@ -219,9 +221,9 @@ EDIT yields an empty proposal. Only UTF-16 is negotiated."
   (when (null edit) (setf edit (json-object)))
   (lsp-edit--object edit "workspaceEdit")
   (let ((annotations (lsp-edit--annotations edit))
-        (operations nil)
-        (history nil)
-        (initial (make-hash-table :test #'equal)))
+        (operations  nil)
+        (history     nil)
+        (initial     (make-hash-table :test #'equal)))
     (labels ((initial-document (uri)
                (multiple-value-bind (entry present-p) (gethash uri initial)
                  (unless present-p
@@ -236,7 +238,7 @@ EDIT yields an empty proposal. Only UTF-16 is negotiated."
              (text-operation (uri version edits)
                (let ((operation (lsp-edit--text-operation
                                  uri version edits :snapshot #'current-document
-                                 :annotations annotations)))
+                                 :annotations                annotations)))
                  (multiple-value-bind (text current-version) (current-document uri)
                    (push (json-object "kind" "snapshot" "uri" uri "version" current-version
                                       "text" (lsp-edit--apply-text text (json-get operation "edits")))
@@ -274,7 +276,7 @@ EDIT yields an empty proposal. Only UTF-16 is negotiated."
 (-> lsp-edit--apply-text (string vector) string)
 (defun lsp-edit--apply-text (text edits)
   "Apply validated simultaneous EDITS to an in-memory TEXT value only."
-  (let ((cursor 0)
+  (let ((cursor  0)
         (ordered (stable-sort (coerce edits 'list)
                               (lambda (left right)
                                 (let ((start (json-get left "startOffset"))
@@ -308,11 +310,11 @@ EDIT yields an empty proposal. Only UTF-16 is negotiated."
             (lsp-edit--invalid "snapshot" "Snapshot content and resource kind disagree."))
           (values text version kind)))
       (let* ((operation (first history))
-             (older (rest history))
-             (kind (json-get operation "kind"))
-             (options (json-get operation "options"))
+             (older     (rest history))
+             (kind      (json-get operation "kind"))
+             (options   (json-get operation "options"))
              (overwrite (and options (eq (json-get options "overwrite") t)))
-             (ignore (and options (eq (json-get options "ignoreIfExists") t))))
+             (ignore    (and options (eq (json-get options "ignoreIfExists") t))))
         (cond
           ((and (equal kind "snapshot") (equal uri (json-get operation "uri")))
            (values (json-get operation "text") (json-get operation "version") ':file))

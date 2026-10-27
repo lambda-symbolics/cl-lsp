@@ -14,7 +14,7 @@
 (defun test-lsp-transport-framing ()
   "Test UTF-8 framing, consecutive frames, and malformed input rejection."
   (let* ((object (json-object "jsonrpc" "2.0" "method" "žluť"))
-         (bytes (lsp-transport-tests--frame object))
+         (bytes  (lsp-transport-tests--frame object))
          (stream
           (flexi-streams:make-in-memory-input-stream
            (concatenate '(vector (unsigned-byte 8)) bytes bytes))))
@@ -57,7 +57,6 @@
        "writer and reader preserve Unicode and CRLF framing"))))
 
 (-> lsp-transport-tests--server-form nil list)
-
 (defun lsp-transport-tests--server-form ()
   "Return a standalone ASCII stdio fixture with a callback, timeout, and EOF."
   '(labels ((read-frame ()
@@ -89,7 +88,6 @@
      (sb-ext:exit :code 0)))
 
 (-> lsp-transport-tests--open (pathname list) lsp-transport)
-
 (defun lsp-transport-tests--open (root form)
   "Start an isolated SBCL fixture over the actual stdio transport."
   (lsp-transport-open :command (namestring sb-ext:*runtime-pathname*)
@@ -109,7 +107,6 @@
                         (declare (ignore method params)))))
 
 (-> test-lsp-transport-process-lifecycle nil null)
-
 (defun test-lsp-transport-process-lifecycle ()
   "Exercise real pipes, callback replies, request deadlines, EOF, and process cleanup."
   (with-test-directory (configuration)
@@ -144,7 +141,7 @@
       (every (lambda (thread) (not (thread-alive-p thread))) threads)
       "all transport threads have stopped"))
    (let* ((transport (lsp-transport-tests--open configuration '(sleep 60)))
-          (process (lsp-transport-process transport)))
+          (process   (lsp-transport-process transport)))
      (unwind-protect
          (progn
           (sb-sys:with-deadline (:seconds 0.01)

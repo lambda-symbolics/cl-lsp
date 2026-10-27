@@ -81,7 +81,7 @@
           (return))))
     (let ((length-text nil))
       (dolist (line (uiop:split-string (lsp--octets-to-string header) :separator '(#\Newline)))
-        (let* ((line (string-trim '(#\Return) line))
+        (let* ((line  (string-trim '(#\Return) line))
                (colon (position #\: line)))
           (unless (zerop (length line))
             (unless colon (error 'lsp-error :message "Malformed LSP header."))
@@ -264,14 +264,14 @@
                             (:request-handler function) (:notification-handler function)) lsp-transport)
 (defun lsp-transport-open (&key command arguments directory request-handler notification-handler)
   "Start a trusted local command using binary pipes and three bounded worker threads."
-  (let* ((process (uiop:launch-program (cons command arguments) :directory directory
-                                     :input ':stream :output ':stream :error-output ':stream
-                                     :element-type '(unsigned-byte 8)))
-         (transport (make-instance 'lsp-transport :process process
-                                    :input (uiop:process-info-output process)
-                                    :output (uiop:process-info-input process)
-                                    :error-output (uiop:process-info-error-output process)
-                                    :request-handler request-handler :notification-handler notification-handler))
+  (let* ((process    (uiop:launch-program (cons command arguments) :directory directory
+                                        :input ':stream :output ':stream :error-output ':stream
+                                        :element-type                         '(unsigned-byte 8)))
+         (transport  (make-instance 'lsp-transport :process process
+                                     :input                 (uiop:process-info-output process)
+                                     :output                (uiop:process-info-input process)
+                                     :error-output          (uiop:process-info-error-output process)
+                                     :request-handler request-handler :notification-handler notification-handler))
          (complete-p nil))
     (unwind-protect
          (progn
@@ -286,12 +286,12 @@
 (-> lsp-transport-request (lsp-transport string t &key (:timeout real)) t)
 (defun lsp-transport-request (transport method params &key (timeout 30))
   "Send METHOD and await its matching reply, including writes in the total deadline."
-  (let* ((pending (make-instance 'lsp-pending-request))
-         (id (with-lock-held ((lsp-transport-lock transport))
-               (when (>= (hash-table-count (lsp-transport-pending transport)) 128)
-                 (error 'lsp-error :message "Too many concurrent LSP requests."))
-               (let ((id (incf (lsp-transport-next-id transport))))
-                 (setf (gethash id (lsp-transport-pending transport)) pending) id)))
+  (let* ((pending  (make-instance 'lsp-pending-request))
+         (id       (with-lock-held ((lsp-transport-lock transport))
+                     (when (>= (hash-table-count (lsp-transport-pending transport)) 128)
+                       (error 'lsp-error :message "Too many concurrent LSP requests."))
+                     (let ((id (incf (lsp-transport-next-id transport))))
+                       (setf (gethash id (lsp-transport-pending transport)) pending) id)))
          (deadline (+ (get-internal-real-time) (* timeout internal-time-units-per-second))))
     (unwind-protect
          (progn

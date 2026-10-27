@@ -10,7 +10,7 @@ This is the inverse of LSP-POSITION. Signal LSP-ERROR when the coordinates lie
 outside TEXT or split a UTF-16 surrogate pair."
   (unless (and (typep line '(integer 0)) (typep character '(integer 0)))
     (error 'lsp-error :message "LSP line and character must be non-negative integers."))
-  (let ((current-line 0)
+  (let ((current-line      0)
         (current-character 0))
     (loop for index from 0 to (length text)
           do (when (and (= current-line line) (= current-character character))
@@ -62,7 +62,7 @@ POSITION, a protocol position, is required except for document and workspace
 symbols; QUERY is the workspace symbol search text. Signal LSP-ERROR for an
 unknown operation, a capability the server did not advertise, or missing input."
   (let ((specification (assoc operation *lsp-query-operations* :test #'equal))
-        (params (json-object)))
+        (params        (json-object)))
     (unless specification
       (error 'lsp-error :message (format nil "Unknown LSP query operation ~S." operation)))
     (unless (lsp-client-supports-p client (third specification))
@@ -118,13 +118,13 @@ enabled server handles PATH."
       (mapcar (lambda (configuration)
                 (let ((name (lsp-server-configuration-name configuration)))
                   (handler-case
-                      (let* ((root (lsp-project-root path boundary
-                                                     (lsp-server-configuration-root-markers
-                                                      configuration)))
+                      (let* ((root   (lsp-project-root path boundary
+                                                       (lsp-server-configuration-root-markers
+                                                        configuration)))
                              (client (lsp-manager-client manager configuration root)))
                         (lsp-client-resync client)
                         (list :server name
-                              :root root
+                              :root   root
                               :result (funcall function client (lsp-client-sync client path))))
                     (error (condition)
                       (list :server name :error condition)))))

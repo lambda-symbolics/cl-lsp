@@ -84,12 +84,12 @@
 (defun test-lsp-client-queries ()
   "Test capability gates and request parameters of read-only queries."
   (with-test-directory (root)
-    (let* ((path (lsp-client-tests--write root "file.txt" "text"))
+    (let* ((path     (lsp-client-tests--write root "file.txt" "text"))
            (document (make-instance 'lsp-document :path path :text "text"))
-           (client (lsp-client-tests--client
-                    root :capabilities (json-object "referencesProvider" t
-                                                    "workspaceSymbolProvider" t
-                                                    "documentSymbolProvider" t)))
+           (client   (lsp-client-tests--client
+                      root :capabilities (json-object "referencesProvider" t
+                                                      "workspaceSymbolProvider" t
+                                                      "documentSymbolProvider" t)))
            (requests nil))
       (lsp-client-tests--with-replacements
        (list (list 'lsp-transport-request
@@ -127,16 +127,16 @@
 (defun test-lsp-manager-map-file ()
   "Test extension fan-out with independent per-server results."
   (with-test-directory (root)
-    (let* ((path (lsp-client-tests--write root "file.txt" "text"))
+    (let* ((path    (lsp-client-tests--write root "file.txt" "text"))
            (manager (make-instance 'lsp-manager :client-name "Fan" :client-version "1"))
-           (good (lsp-client-tests--configuration :name "good"))
-           (bad (lsp-client-tests--configuration :name "bad"))
-           (other (make-instance 'lsp-server-configuration
-                                 :name "other" :command "x" :extensions '(".lisp")
-                                 :language-id "lisp"))
-           (off (make-instance 'lsp-server-configuration
-                               :name "off" :command "x" :extensions '(".txt")
-                               :language-id "text" :disabled-p t)))
+           (good    (lsp-client-tests--configuration :name "good"))
+           (bad     (lsp-client-tests--configuration :name "bad"))
+           (other   (make-instance 'lsp-server-configuration
+                                   :name "other" :command "x" :extensions '(".lisp")
+                                   :language-id "lisp"))
+           (off     (make-instance 'lsp-server-configuration
+                                   :name "off" :command "x" :extensions '(".txt")
+                                   :language-id "text" :disabled-p t)))
       (setf (lsp-manager-configurations manager) (list good bad other off))
       (tests--assert (equal (mapcar #'lsp-server-configuration-name
                                     (lsp-configurations-for-path (list good other off) path))

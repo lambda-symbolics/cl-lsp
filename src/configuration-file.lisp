@@ -29,7 +29,7 @@
   ((pathname :initarg :pathname :initform nil :reader lsp-configuration-error-pathname
              :documentation "The configuration file involved.")
    (server-name :initarg :server-name :initform nil
-                :reader lsp-configuration-error-server-name
+                :reader        lsp-configuration-error-server-name
                 :documentation "The server definition involved, when known.")
    (field :initarg :field :initform nil :reader lsp-configuration-error-field
           :documentation "The invalid field, when known.")
@@ -48,7 +48,7 @@ text), :TIMEOUT-SECONDS and :DISABLED-P. The file is read through a closed
 grammar with no evaluation and every bound above. Return the servers as
 LSP-SERVER-CONFIGURATION objects in file order; signal LSP-CONFIGURATION-ERROR
 for anything else."
-  (let* ((form (lsp-configuration--read-form pathname))
+  (let* ((form       (lsp-configuration--read-form pathname))
          (properties (lsp-configuration--plist form '(:version :servers) pathname)))
     (unless (eql (lsp-configuration--property properties :version pathname :required-p t)
                  *lsp-configuration-version*)
@@ -56,7 +56,7 @@ for anything else."
                                        *lsp-configuration-version*)
                                :pathname pathname :field :version))
     (let ((servers (lsp-configuration--property properties :servers pathname :required-p t))
-          (seen (make-hash-table :test #'equal)))
+          (seen    (make-hash-table :test #'equal)))
       (unless (and (lsp-configuration--list-p servers #'identity)
                    (<= (length servers) *lsp-configuration-maximum-servers*))
         (lsp-configuration--fail (format nil ":SERVERS must be a list of at most ~D entries."
@@ -84,10 +84,10 @@ for anything else."
       (sexp-config:read-source-file
        pathname
        (sexp-config:make-source-grammar
-        :label "The LSP configuration"
-        :keywords (list* :version :servers *lsp-configuration-server-keys*)
-        :maximum-depth 32
-        :maximum-nodes 16384
+        :label                     "The LSP configuration"
+        :keywords                  (list* :version :servers *lsp-configuration-server-keys*)
+        :maximum-depth             32
+        :maximum-nodes             16384
         :maximum-string-characters *lsp-configuration-maximum-string-characters*
         :allowed-atom-predicate
         (lambda (value)
@@ -156,22 +156,22 @@ for anything else."
 (defun lsp-configuration--server (form pathname)
   "Validate one server definition FORM and return its configuration."
   (lsp-configuration--plist form *lsp-configuration-server-keys* pathname)
-  (let* ((name (lsp-configuration--property form :name pathname :required-p t))
-         (command (lsp-configuration--property form :command pathname :required-p t
-                                                                       :server-name name))
-         (language-id (lsp-configuration--property form :language-id pathname
-                                                   :required-p t :server-name name))
-         (arguments (lsp-configuration--property form :arguments pathname))
-         (extensions (lsp-configuration--property form :extensions pathname))
+  (let* ((name         (lsp-configuration--property form :name pathname :required-p t))
+         (command      (lsp-configuration--property form :command pathname :required-p t
+                                                                            :server-name name))
+         (language-id  (lsp-configuration--property form :language-id pathname
+                                                    :required-p t :server-name name))
+         (arguments    (lsp-configuration--property form :arguments pathname))
+         (extensions   (lsp-configuration--property form :extensions pathname))
          (root-markers (lsp-configuration--property form :root-markers pathname))
-         (timeout (multiple-value-bind (indicator value)
-                      (get-properties form '(:timeout-seconds))
-                    (if indicator value 30)))
-         (disabled-p (lsp-configuration--property form :disabled-p pathname)))
+         (timeout      (multiple-value-bind (indicator value)
+                           (get-properties form '(:timeout-seconds))
+                         (if indicator value 30)))
+         (disabled-p   (lsp-configuration--property form :disabled-p pathname)))
     (flet ((fail (message field)
-             (lsp-configuration--fail message :pathname pathname
+             (lsp-configuration--fail message :pathname    pathname
                                               :server-name (and (stringp name) name)
-                                              :field field)))
+                                              :field       field)))
       (loop for (value field) in (list (list name :name) (list command :command)
                                        (list language-id :language-id))
             do (unless (lsp-configuration--string-p value)
@@ -198,19 +198,19 @@ for anything else."
       (unless (member disabled-p '(nil t))
         (fail "LSP :DISABLED-P must be exactly T or NIL." :disabled-p))
       (make-instance 'lsp-server-configuration
-                     :name (copy-seq name)
-                     :command (copy-seq command)
-                     :arguments (mapcar #'copy-seq arguments)
-                     :extensions (mapcar #'copy-seq extensions)
-                     :language-id (copy-seq language-id)
-                     :root-markers (mapcar #'copy-seq root-markers)
+                     :name            (copy-seq name)
+                     :command         (copy-seq command)
+                     :arguments       (mapcar #'copy-seq arguments)
+                     :extensions      (mapcar #'copy-seq extensions)
+                     :language-id     (copy-seq language-id)
+                     :root-markers    (mapcar #'copy-seq root-markers)
                      :initialization-options
                      (lsp-configuration--json-object
                       (lsp-configuration--property form :initialization-options pathname)
                       pathname :server-name name :field :initialization-options)
-                     :settings (or (lsp-configuration--json-object
-                                    (lsp-configuration--property form :settings pathname)
-                                    pathname :server-name name :field :settings)
-                                   (json-object))
+                     :settings        (or (lsp-configuration--json-object
+                                           (lsp-configuration--property form :settings pathname)
+                                           pathname :server-name name :field :settings)
+                                          (json-object))
                      :timeout-seconds timeout
-                     :disabled-p disabled-p))))
+                     :disabled-p      disabled-p))))

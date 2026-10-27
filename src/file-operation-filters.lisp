@@ -15,11 +15,16 @@
                      (separators nil))
                  (loop for character across source for index from 0
                        do (cond
-                            (escaped (setf escaped nil))
-                            ((char= character #\Backslash) (setf escaped t))
-                            ((char= character #\[) (setf in-class t))
-                            ((char= character #\]) (setf in-class nil))
-                            (in-class nil)
+                            (escaped
+                             (setf escaped nil))
+                            ((char= character #\Backslash)
+                             (setf escaped t))
+                            ((char= character #\[)
+                             (setf in-class t))
+                            ((char= character #\])
+                             (setf in-class nil))
+                            (in-class
+                             nil)
                             ((char= character #\{)
                              (when (zerop depth) (setf open index))
                              (incf depth))
@@ -27,7 +32,8 @@
                              (when (zerop depth) (lsp-edit--invalid "glob" "Unmatched closing brace."))
                              (decf depth)
                              (when (zerop depth) (setf close index) (return)))
-                            ((and (= depth 1) (char= character #\,)) (push index separators))))
+                            ((and (= depth 1) (char= character #\,))
+                             (push index separators))))
                  (when (and open (null close))
                    (lsp-edit--invalid "glob" "Unclosed brace alternative."))
                  (if open
@@ -46,8 +52,8 @@
   "Match *, **, ?, braces and character sets against a slash-separated PATH."
   (some
    (lambda (source)
-     (let ((memo (make-hash-table :test #'equal))
-           (size (length source))
+     (let ((memo   (make-hash-table :test #'equal))
+           (size   (length source))
            (length (length path)))
        (labels ((match (pattern-index text-index)
                   (let ((key (cons pattern-index text-index)))
@@ -62,7 +68,7 @@
                       ((char= character #\*)
                        (let* ((double (and (< (1+ pattern-index) size)
                                            (char= (char source (1+ pattern-index)) #\*)))
-                              (next (+ pattern-index (if double 2 1))))
+                              (next   (+ pattern-index (if double 2 1))))
                          (or (match next text-index)
                              (and double (< next size) (char= (char source next) #\/)
                                   (match (1+ next) text-index))
@@ -75,9 +81,9 @@
                       ((char= character #\[)
                        (let ((end (position #\] source :start (1+ pattern-index))))
                          (unless end (lsp-edit--invalid "glob" "Unclosed character class."))
-                         (let* ((start (1+ pattern-index))
+                         (let* ((start   (1+ pattern-index))
                                 (negated (and (< start end) (find (char source start) "!^")))
-                                (found nil))
+                                (found   nil))
                            (when negated (incf start))
                            (when (= start end) (lsp-edit--invalid "glob" "Empty character class."))
                            (when (< text-index length)
@@ -110,20 +116,20 @@
   "Match a registration FILTER against URI using FILE-KIND only when required."
   (lsp-edit--object filter "fileOperationFilter")
   (let* ((pattern (lsp-edit--object (json-get filter "pattern") "pattern"))
-         (glob (lsp-edit--string (json-get pattern "glob") "glob"))
-         (scheme (gethash "scheme" filter))
+         (glob    (lsp-edit--string (json-get pattern "glob") "glob"))
+         (scheme  (gethash "scheme" filter))
          (matches (gethash "matches" pattern))
          (options (gethash "options" pattern))
-         (parsed (handler-case (quri:uri uri)
-                   (error () (lsp-edit--invalid "uri" "Cannot parse file operation URI."))))
-         (path (handler-case
-                   (quri:url-decode
-                    (with-output-to-string (output)
-                      (loop for character across (or (quri:uri-path parsed) "")
-                            do (if (char= character #\+)
-                                   (write-string "%2B" output)
-                                   (write-char character output)))))
-                 (error () (lsp-edit--invalid "uri" "Cannot decode file operation URI path.")))))
+         (parsed  (handler-case (quri:uri uri)
+                    (error () (lsp-edit--invalid "uri" "Cannot parse file operation URI."))))
+         (path    (handler-case
+                      (quri:url-decode
+                       (with-output-to-string (output)
+                         (loop for character across (or (quri:uri-path parsed) "")
+                               do (if (char= character #\+)
+                                      (write-string "%2B" output)
+                                      (write-char character output)))))
+                    (error () (lsp-edit--invalid "uri" "Cannot decode file operation URI path.")))))
     (when (and scheme (not (stringp scheme)))
       (lsp-edit--invalid "scheme" "Filter scheme must be a string."))
     (when (and matches (not (member matches '("file" "folder") :test #'equal)))
@@ -144,4 +150,7 @@
                (let ((kind (funcall file-kind uri)))
                  (unless (member kind '(:file :folder))
                    (lsp-edit--invalid "fileKind" "File-kind callback must return :FILE or :FOLDER."))
-                 (equal matches (ecase kind (:file "file") (:folder "folder")))))))))
+                 (equal matches (ecase kind (:file
+                                             "file")
+                                            (:folder
+                                             "folder")))))))))

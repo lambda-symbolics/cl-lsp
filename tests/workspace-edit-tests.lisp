@@ -20,23 +20,23 @@
 (-> test-lsp-workspace-edit-normalization nil null)
 (defun test-lsp-workspace-edit-normalization ()
   "Exercise multi-file edits, versions, annotations and ordered resources."
-  (let* ((uri "file:///a")
-         (text (format nil "a~Cb~C~%next" (code-char #x1f600) #\Return))
-         (snapshot (lambda (name) (declare (ignore name)) (values text 7)))
+  (let* ((uri         "file:///a")
+         (text        (format nil "a~Cb~C~%next" (code-char #x1f600) #\Return))
+         (snapshot    (lambda (name) (declare (ignore name)) (values text 7)))
          (annotations (json-object "review" (json-object "label" "Review" "needsConfirmation" t)))
-         (edit (edit-tests--edit 1 3 "x"))
-         (document (json-object "textDocument" (json-object "uri" uri "version" 7)
-                                "edits" (vector edit))))
+         (edit        (edit-tests--edit 1 3 "x"))
+         (document    (json-object "textDocument" (json-object "uri" uri "version" 7)
+                                   "edits" (vector edit))))
     (setf (gethash "annotationId" edit) "review")
-    (let* ((plan (lsp-normalize-workspace-edit
-                  (json-object "changeAnnotations" annotations
-                               "documentChanges"
-                               (vector (json-object "kind" "create" "uri" "file:///b"
-                                                    "options" (json-object "ignoreIfExists" t))
-                                       document
-                                       (json-object "kind" "rename" "oldUri" uri "newUri" "file:///c")
-                                       (json-object "kind" "delete" "uri" "file:///d")))
-                  :snapshot snapshot))
+    (let* ((plan       (lsp-normalize-workspace-edit
+                        (json-object "changeAnnotations" annotations
+                                     "documentChanges"
+                                     (vector (json-object "kind" "create" "uri" "file:///b"
+                                                          "options" (json-object "ignoreIfExists" t))
+                                             document
+                                             (json-object "kind" "rename" "oldUri" uri "newUri" "file:///c")
+                                             (json-object "kind" "delete" "uri" "file:///d")))
+                        :snapshot snapshot))
            (operations (json-get plan "operations"))
            (normalized (aref (json-get (aref operations 1) "edits") 0)))
       (tests--assert (= (length operations) 4) "all resource and document operations survive")
@@ -66,7 +66,7 @@
      (edit-tests--refused-p
       (lambda () (lsp-normalize-workspace-edit
                   (json-object "changes" (json-object uri (vector (edit-tests--edit 0 3 "x")
-                                                                   (edit-tests--edit 1 4 "y"))))
+                                                                  (edit-tests--edit 1 4 "y"))))
                   :snapshot snapshot))) "overlapping replacements are rejected")
     (tests--assert
      (edit-tests--refused-p
@@ -104,8 +104,8 @@
 (-> test-lsp-workspace-edit-overlay nil null)
 (defun test-lsp-workspace-edit-overlay ()
   "Validate ordered creates, folder moves, repeated edits and deletes in memory."
-  (let ((calls 0)
-        (source "file:///old/a.txt")
+  (let ((calls       0)
+        (source      "file:///old/a.txt")
         (destination "file:///new/a.txt"))
     (let* ((plan
              (lsp-normalize-workspace-edit
@@ -153,19 +153,22 @@
 (-> test-lsp-workspace-edit-conditional-resources nil null)
 (defun test-lsp-workspace-edit-conditional-resources ()
   "Validate conditional resource operations using folder observations and bounds."
-  (let* ((source "file:///old/a.txt")
-         (folder "file:///new")
+  (let* ((source   "file:///old/a.txt")
+         (folder   "file:///new")
          (snapshot (lambda (uri)
-                     (cond ((equal uri source) (values "name" 4 :file))
-                           ((equal uri folder) (values nil nil :folder))
-                           (t (values nil nil :missing)))))
-         (move (json-object "kind" "rename" "oldUri" "file:///old" "newUri" folder
-                            "options" (json-object "ignoreIfExists" t)))
-         (change (edit-tests--document-change source (vector (edit-tests--edit 0 4 "new")) 4)))
+                     (cond ((equal uri source)
+                            (values "name" 4 :file))
+                           ((equal uri folder)
+                            (values nil nil :folder))
+                           (t
+                            (values nil nil :missing)))))
+         (move     (json-object "kind" "rename" "oldUri" "file:///old" "newUri" folder
+                                "options" (json-object "ignoreIfExists" t)))
+         (change   (edit-tests--document-change source (vector (edit-tests--edit 0 4 "new")) 4)))
     (tests--assert (= (length (json-get
-                              (lsp-normalize-workspace-edit
-                               (json-object "documentChanges" (vector move change)) :snapshot snapshot)
-                              "operations")) 2)
+                               (lsp-normalize-workspace-edit
+                                (json-object "documentChanges" (vector move change)) :snapshot snapshot)
+                               "operations")) 2)
                    "ignored folder moves leave source document text and version available")
     (tests--assert
      (edit-tests--refused-p
@@ -182,10 +185,10 @@
                   :snapshot (lambda (uri) (declare (ignore uri)) (values "name" 4 :missing)))))
      "inconsistent snapshot kind and content signal a protocol failure")
     (tests--assert (= (length (json-get
-                              (lsp-normalize-workspace-edit
-                               (json-object "changes" (json-object "file:///unused" #())
-                                            "documentChanges" (vector change)) :snapshot snapshot)
-                              "operations")) 1)
+                               (lsp-normalize-workspace-edit
+                                (json-object "changes" (json-object "file:///unused" #())
+                                             "documentChanges" (vector change)) :snapshot snapshot)
+                               "operations")) 1)
                    "the ordered versioned representation takes precedence over legacy changes")
     (let ((*lsp-maximum-workspace-operations* 1))
       (tests--assert

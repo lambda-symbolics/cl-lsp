@@ -52,9 +52,9 @@
          (lsp-client--sync-options client)
        (lsp-client-tests--assert (and (= kind 2) open (null save))))
      (setf (lsp-client-capabilities client)
-             (json-object "textDocumentSync"
-                          (json-object "change" 1 "openClose" t "save"
-                                       (json-object "includeText" t))))
+           (json-object "textDocumentSync"
+                        (json-object "change" 1 "openClose" t "save"
+                                     (json-object "includeText" t))))
      (multiple-value-bind (kind open save)
          (lsp-client--sync-options client)
        (lsp-client-tests--assert
@@ -86,7 +86,7 @@
                (setf (getf transport :live) nil))))
       (let ((client
              (lsp-client-start (lsp-client-tests--configuration)
-                                configuration :client-name "Fixture" :client-version "2.3")))
+                               configuration :client-name "Fixture" :client-version "2.3")))
          (tests--assert
           (and (string= "Fixture" (json-get identity "name"))
                (string= "2.3" (json-get identity "version"))
@@ -111,8 +111,8 @@
           (client
            (lsp-client-tests--client configuration :transport (list :live t))))
      (setf (lsp-client-capabilities client)
-             (json-object "textDocumentSync"
-                          (json-object "change" 2 "openClose" t)))
+           (json-object "textDocumentSync"
+                        (json-object "change" 2 "openClose" t)))
      (lsp-client-tests--with-replacements
       (list
        (list 'lsp-transport-notify
@@ -127,7 +127,7 @@
      (lsp-client-tests--assert
       (string= (first (first sent)) "textDocument/didChange"))
      (let* ((change (aref (json-get (second (first sent)) "contentChanges") 0))
-            (end (json-get (json-get change "range") "end")))
+            (end    (json-get (json-get change "range") "end")))
        (lsp-client-tests--assert
         (and (= (json-get end "line") 0) (= (json-get end "character") 5)
              (string= (json-get change "text") "hello!")))))))
@@ -182,7 +182,7 @@
 (defun test-lsp-client-diagnostics-push-pull ()
   "Test pending versus empty push reports and pull diagnostics."
   (with-test-directory (configuration)
-   (let* ((path (lsp-client-tests--write configuration "a.txt" "x"))
+   (let* ((path     (lsp-client-tests--write configuration "a.txt" "x"))
           (requests 0)
           (client
            (lsp-client-tests--client configuration :transport (list :live t))))
@@ -201,7 +201,7 @@
           (and (string= (json-get empty "state") "received")
                (zerop (length (json-get empty "items"))))))
        (setf (lsp-client-capabilities client)
-               (json-object "diagnosticProvider" t))
+             (json-object "diagnosticProvider" t))
        (lsp-client-tests--with-replacements
         (list
          (list 'lsp-transport-request
@@ -219,11 +219,11 @@
 (defun test-lsp-client-manager-reuse-restart-and-cleanup ()
   "Test lazy client reuse, dead-client restart, and manager cleanup."
   (with-test-directory (configuration)
-   (let* ((root configuration)
+   (let* ((root                 configuration)
           (server-configuration (lsp-client-tests--configuration))
-          (starts 0)
-          (closes 0)
-          (manager (make-instance 'lsp-manager :client-name "Pool" :client-version "4.5")))
+          (starts               0)
+          (closes               0)
+          (manager              (make-instance 'lsp-manager :client-name "Pool" :client-version "4.5")))
      (lsp-client-tests--with-replacements
       (list
        (list 'lsp-client-start
@@ -254,18 +254,17 @@
          (zerop (hash-table-count (lsp-manager-clients manager)))))))))
 
 (-> test-lsp-client-independent-diagnostic-sources nil null)
-
 (defun test-lsp-client-independent-diagnostic-sources ()
   "Keep push and pull reports independent across replacement, clearing, and edits."
   (with-test-directory (configuration)
-   (let* ((path (lsp-client-tests--write configuration "mixed.txt" "x"))
+   (let* ((path           (lsp-client-tests--write configuration "mixed.txt" "x"))
           (client
            (lsp-client-tests--client configuration :capabilities
             (json-object "diagnosticProvider" t)))
-          (document (lsp-client-sync client path))
+          (document       (lsp-client-sync client path))
           (compiler-error (json-object "message" "compiler error"))
-          (native-error (json-object "message" "native error"))
-          (pulled #()))
+          (native-error   (json-object "message" "native error"))
+          (pulled         #()))
      (labels ((publish
                   (items
                    &key (source ':push)
@@ -278,6 +277,7 @@
                                                               "diagnostics"
                                                               items)
                                                  :source source))
+
               (messages (report)
                 (map 'list (lambda (item) (json-get item "message"))
                      (json-get report "items"))))

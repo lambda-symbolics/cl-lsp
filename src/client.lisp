@@ -34,11 +34,11 @@
          :documentation "Last synchronized complete text.")
    (version :initform 1 :accessor lsp-document-version
             :documentation "Monotonically increasing document version.")
-   (push-report :initform (make-instance 'lsp-diagnostic-report)
-                :accessor lsp-document-push-report
+   (push-report :initform      (make-instance 'lsp-diagnostic-report)
+                :accessor      lsp-document-push-report
                 :documentation "Latest published diagnostics for this version.")
-   (pull-report :initform (make-instance 'lsp-diagnostic-report)
-                :accessor lsp-document-pull-report
+   (pull-report :initform      (make-instance 'lsp-diagnostic-report)
+                :accessor      lsp-document-pull-report
                 :documentation "Latest pulled diagnostics for this version."))
   (:documentation "One synchronized file with independent push and pull diagnostic state."))
 
@@ -132,15 +132,15 @@
      nil)
     (t
      (error 'lsp-rpc-error :code -32601
-            :message (format nil "Unsupported language server request: ~A" method)))))
+            :message             (format nil "Unsupported language server request: ~A" method)))))
 
 (-> lsp-client--publish-diagnostics
     (lsp-client json-object &key (:source (member :push :pull))) null)
 (defun lsp-client--publish-diagnostics (client params &key (source ':push))
   "Replace only SOURCE's report for an open file, rejecting explicitly stale versions."
-  (let ((uri (json-get params "uri"))
+  (let ((uri     (json-get params "uri"))
         (version (json-get params "version"))
-        (items (json-get params "diagnostics")))
+        (items   (json-get params "diagnostics")))
     (when (and (stringp uri) (vectorp items) (not (stringp items)))
       (with-lock-held ((lsp-client-lock client))
         (let ((document (gethash uri (lsp-client-documents client))))
@@ -148,8 +148,10 @@
                      (or (null version)
                          (eql version (lsp-document-version document))))
             (let ((report (ecase source
-                            (:push (lsp-document-push-report document))
-                            (:pull (lsp-document-pull-report document)))))
+                            (:push
+                             (lsp-document-push-report document))
+                            (:pull
+                             (lsp-document-pull-report document)))))
               (setf (lsp-diagnostic-report-items report)
                     (subseq items 0 (min (length items) *lsp-maximum-diagnostics*))
                     (lsp-diagnostic-report-truncated-p report)
@@ -167,21 +169,21 @@
   nil)
 
 (-> lsp-client-start (lsp-server-configuration pathname
-                     &key (:client-name string) (:client-version string)) lsp-client)
+                      &key (:client-name string) (:client-version string)) lsp-client)
 (defun lsp-client-start (configuration root &key (client-name "cl-lsp") (client-version "0.1.0"))
   "Start and initialize one configured server, closing partial startup on failure."
-  (let ((client (make-instance 'lsp-client :configuration configuration :root root
-                                          :client-name client-name :client-version client-version))
+  (let ((client      (make-instance 'lsp-client :configuration configuration :root root
+                                               :client-name client-name :client-version client-version))
         (completed-p nil))
     (unwind-protect
          (progn
            (setf (lsp-client-transport client)
                  (lsp-transport-open
-                  :command (lsp-server-configuration-command configuration)
-                  :arguments (lsp-server-configuration-arguments configuration)
-                  :directory root
-                  :request-handler (lambda (method params)
-                                     (lsp-client--server-request client method params))
+                  :command              (lsp-server-configuration-command configuration)
+                  :arguments            (lsp-server-configuration-arguments configuration)
+                  :directory            root
+                  :request-handler      (lambda (method params)
+                                          (lsp-client--server-request client method params))
                   :notification-handler (lambda (method params)
                                           (lsp-client--notification client method params))))
            (let* ((reply
@@ -231,10 +233,10 @@
                   (capabilities (and (hash-table-p reply) (json-get reply "capabilities"))))
              (unless (json-object-p capabilities)
                (error 'lsp-protocol-error :field "capabilities"
-                      :message "Language server returned no initialize capabilities."))
+                      :message                   "Language server returned no initialize capabilities."))
              (unless (equal (json-get capabilities "positionEncoding" "utf-16") "utf-16")
                (error 'lsp-protocol-error :field "positionEncoding"
-                      :message "Language server did not negotiate UTF-16 positions."))
+                      :message                   "Language server did not negotiate UTF-16 positions."))
              (setf (lsp-client-capabilities client) capabilities))
            (lsp-transport-notify (lsp-client-transport client) "initialized" (json-object))
            (lsp-transport-notify
@@ -285,7 +287,7 @@
 (-> lsp-manager-client (lsp-manager lsp-server-configuration pathname) lsp-client)
 (defun lsp-manager-client (manager configuration root)
   "Return a live client for CONFIGURATION and ROOT, restarting a dead process once."
-  (let* ((key (list (lsp-server-configuration-name configuration) (namestring root)))
+  (let* ((key      (list (lsp-server-configuration-name configuration) (namestring root)))
          (existing (gethash key (lsp-manager-clients manager))))
     (when existing
       (if (and (lsp-client-transport existing)
@@ -296,7 +298,7 @@
       (error 'lsp-error :message "Language server limit reached; close clients before opening more."))
     (setf (gethash key (lsp-manager-clients manager))
           (lsp-client-start configuration root
-                            :client-name (lsp-manager-client-name manager)
+                            :client-name    (lsp-manager-client-name manager)
                             :client-version (lsp-manager-client-version manager)))))
 
 (-> lsp--read-document (pathname) string)
@@ -326,8 +328,8 @@
 (-> lsp-client-sync (lsp-client pathname) lsp-document)
 (defun lsp-client-sync (client path)
   "Synchronize PATH, invalidating diagnostics before sending changed content."
-  (let* ((uri (lsp-path-uri path))
-         (text (lsp--read-document path))
+  (let* ((uri       (lsp-path-uri path))
+         (text      (lsp--read-document path))
          (document nil) (old-text nil) (changed-p nil) (opened-p nil)
          (transport (lsp-client-transport client)))
     (with-lock-held ((lsp-client-lock client))
@@ -406,10 +408,10 @@
 (defun lsp-document-diagnostics (document)
   "Return the bounded union and truncation flag; the caller holds the client lock."
   (let* ((reports (list (lsp-document-push-report document) (lsp-document-pull-report document)))
-         (items (remove-duplicates
-                 (concatenate 'vector (lsp-diagnostic-report-items (first reports))
-                                      (lsp-diagnostic-report-items (second reports)))
-                 :test #'equalp :from-end t)))
+         (items   (remove-duplicates
+                   (concatenate 'vector (lsp-diagnostic-report-items (first reports))
+                                        (lsp-diagnostic-report-items (second reports)))
+                   :test #'equalp :from-end t)))
     (values (subseq items 0 (min (length items) *lsp-maximum-diagnostics*))
             (not (null (or (> (length items) *lsp-maximum-diagnostics*)
                            (some #'lsp-diagnostic-report-truncated-p reports)))))))
@@ -419,8 +421,8 @@
   "Combine independent reports without treating an empty source as clearing another."
   (let* ((push-report (lsp-document-push-report document))
          (pull-report (lsp-document-pull-report document))
-         (reports (remove-if-not #'lsp-diagnostic-report-received-p
-                                 (list push-report pull-report)))
+         (reports     (remove-if-not #'lsp-diagnostic-report-received-p
+                                     (list push-report pull-report)))
          (versioned-p (and reports (every #'lsp-diagnostic-report-versioned-p reports))))
     (multiple-value-bind (items truncated-p) (lsp-document-diagnostics document)
       (json-object "uri" (lsp-path-uri (lsp-document-path document))

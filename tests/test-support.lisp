@@ -36,9 +36,9 @@
 (defmacro with-test-directory ((root) &body body)
   "Bind ROOT to a fresh temporary directory and remove it on every exit."
   `(let ((,root (merge-pathnames
-                (format nil "cl-lsp-~36R-~36R/" (get-universal-time)
-                        (random (expt 36 12)))
-                (uiop:temporary-directory))))
+                 (format nil "cl-lsp-~36R-~36R/" (get-universal-time)
+                         (random (expt 36 12)))
+                 (uiop:temporary-directory))))
      (ensure-directories-exist (merge-pathnames "fixture" ,root))
      (unwind-protect (progn ,@body)
        (uiop:delete-directory-tree ,root :validate t :if-does-not-exist ':ignore))))
