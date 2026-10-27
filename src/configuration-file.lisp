@@ -142,8 +142,9 @@ for anything else."
        (every predicate value)
        t))
 
-(-> lsp-configuration--json-object (t pathname string keyword) (option hash-table))
-(defun lsp-configuration--json-object (value pathname server-name field)
+(-> lsp-configuration--json-object (t pathname &key (:server-name string) (:field keyword))
+    (option hash-table))
+(defun lsp-configuration--json-object (value pathname &key server-name field)
   "Return the JSON object VALUE's text decodes to, or NIL for a missing VALUE."
   (when value
     (unless (and (lsp-configuration--string-p value) (argo:json-object-source-p value))
@@ -206,10 +207,10 @@ for anything else."
                      :initialization-options
                      (lsp-configuration--json-object
                       (lsp-configuration--property form :initialization-options pathname)
-                      pathname name :initialization-options)
+                      pathname :server-name name :field :initialization-options)
                      :settings (or (lsp-configuration--json-object
                                     (lsp-configuration--property form :settings pathname)
-                                    pathname name :settings)
+                                    pathname :server-name name :field :settings)
                                    (json-object))
                      :timeout-seconds timeout
                      :disabled-p disabled-p))))
