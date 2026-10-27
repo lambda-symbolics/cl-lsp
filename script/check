@@ -1,16 +1,31 @@
-#!/usr/bin/env -S sbcl --script
-(require :asdf)
+#!/bin/sh
 
-(let* ((root (uiop:pathname-parent-directory-pathname
-              (uiop:pathname-directory-pathname *load-truename*)))
-       (setup (merge-pathnames ".qlot/setup.lisp" root))
-       (quicklisp (merge-pathnames "quicklisp/setup.lisp" (user-homedir-pathname))))
-  (cond
-    ((probe-file setup)
-     (load setup))
-    ((probe-file quicklisp)
-     (load quicklisp)))
-  (asdf:load-asd (merge-pathnames "cl-lsp.asd" root))
-  (when (find-package '#:ql)
-    (uiop:symbol-call '#:ql '#:quickload ':cl-lsp :silent t))
-  (asdf:test-system ':cl-lsp))
+set -eu
+
+root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+cd -- "$root"
+
+if [ ! -r "$root/.qlot/setup.lisp" ]; then
+  printf '%s\n' 'cl-lsp dependencies are missing; run ./script/bootstrap.' >&2
+  exit 1
+fi
+
+tests=0
+case " $* " in
+  *" --fix "*) ;;
+  *)
+    sbcl --noinform --non-interactive \
+      --load "$root/.qlot/setup.lisp" \
+      --eval '(require :asdf)' \
+      --eval '(asdf:load-asd (truename "cl-lsp.asd"))' \
+      --eval '(asdf:test-system "cl-lsp")' || tests=$?
+    ;;
+esac
+
+source=0
+sbcl --script "$root/script/check-source.lisp" "$@" || source=$?
+
+if [ "$tests" -ne 0 ]; then
+  exit "$tests"
+fi
+exit "$source"
