@@ -2,7 +2,7 @@
 
 ;;;; -- Proposed Workspace Changes --
 
-(-> lsp-edit--invalid (string string) null)
+(-> lsp-edit--invalid (string string) nil)
 (-> lsp-edit--object (t string) json-object)
 (-> lsp-edit--array (t string) vector)
 (-> lsp-edit--string (t string) string)
