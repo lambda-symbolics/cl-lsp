@@ -144,7 +144,7 @@
       (lsp-client-tests--with-replacements
        (list (list 'lsp-manager-client
                    (lambda (manager configuration root)
-                     (declare (ignore manager root))
+                     (declare (ignore manager))
                      (if (eq configuration bad)
                          (error 'lsp-error :message "server failed to start")
                          (lsp-client-tests--client root))))
