@@ -3,12 +3,6 @@
 ;;;; -- Capability-Gated Semantic Proposals --
 
 (-> lsp-semantic--capability (lsp-client string &rest string) t)
-(-> lsp-semantic--request (lsp-client string json-object) t)
-(-> lsp-semantic--document-params (lsp-document t) json-object)
-(-> lsp-semantic--snapshot (lsp-client (option function)) function)
-(-> lsp-semantic--normalize (lsp-client t (option function)) json-object)
-(-> lsp-semantic--action (lsp-client t (option function)) json-object)
-
 (defun lsp-semantic--capability (client operation &rest path)
   "Require a true or options-object capability at PATH for OPERATION."
   (let ((value (reduce (lambda (object name)
@@ -19,18 +13,21 @@
              :message (format nil "Language server does not advertise ~A." operation)))
     value))
 
+(-> lsp-semantic--request (lsp-client string json-object) t)
 (defun lsp-semantic--request (client method params)
   "Use CLIENT's bounded request lifecycle for METHOD and PARAMS."
   (lsp-transport-request (lsp-client-transport client) method params
                          :timeout (lsp-server-configuration-timeout-seconds
                                    (lsp-client-configuration client))))
 
+(-> lsp-semantic--document-params (lsp-document t) json-object)
 (defun lsp-semantic--document-params (document position)
   "Validate POSITION against DOCUMENT and construct protocol parameters."
   (lsp-edit--position-offset (lsp-document-text document) position)
   (json-object "textDocument" (json-object "uri" (lsp-path-uri (lsp-document-path document)))
                "position" position))
 
+(-> lsp-semantic--snapshot (lsp-client (option function)) function)
 (defun lsp-semantic--snapshot (client snapshot)
   "Use explicit SNAPSHOT, otherwise copy synchronized document text and versions."
   (or snapshot
@@ -44,6 +41,7 @@
           (let ((entry (gethash uri documents)))
             (values (first entry) (rest entry)))))))
 
+(-> lsp-semantic--normalize (lsp-client t (option function)) json-object)
 (defun lsp-semantic--normalize (client edit snapshot)
   "Validate EDIT against supplied or synchronized snapshots."
   (lsp-normalize-workspace-edit
@@ -97,6 +95,7 @@ CLIENT. No command or edit is applied. Authority belongs to the caller."
     (lsp-semantic--normalize client
                              (lsp-semantic--request client "textDocument/rename" params) snapshot)))
 
+(-> lsp-semantic--action (lsp-client t (option function)) json-object)
 (defun lsp-semantic--action (client action snapshot)
   "Normalize a Command or CodeAction while retaining the raw action for resolution."
   (lsp-edit--object action "codeAction")

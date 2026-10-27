@@ -2,22 +2,6 @@
 
 ;;;; -- Proposed Workspace Changes --
 
-(-> lsp-edit--invalid (string string) nil)
-(-> lsp-edit--object (t string) json-object)
-(-> lsp-edit--array (t string) vector)
-(-> lsp-edit--string (t string) string)
-(-> lsp-edit--uri (t) string)
-(-> lsp-edit--position-offset (string t) integer)
-(-> lsp-edit--range (string t) (values integer integer))
-(-> lsp-edit--annotation (json-object json-object json-object) json-object)
-(-> lsp-edit--annotations (json-object) json-object)
-(-> lsp-edit--text-operation (t t t &key (:snapshot (option function))
-                                      (:annotations json-object)) json-object)
-(-> lsp-edit--resource-operation (json-object json-object) json-object)
-(-> lsp-edit--apply-text (string vector) string)
-(-> lsp-edit--uri-below-p (string string) boolean)
-(-> lsp-edit--virtual-document (string list function) (values t t t))
-
 (defparameter *lsp-maximum-workspace-operations* 4096
   "Maximum operations in a normalized workspace proposal.")
 
@@ -34,28 +18,33 @@
               :documentation "The operation not advertised by the server."))
   (:documentation "The server did not advertise a requested semantic operation."))
 
+(-> lsp-edit--invalid (string string) nil)
 (defun lsp-edit--invalid (field message)
   "Signal a typed protocol failure for FIELD with MESSAGE."
   (error 'lsp-protocol-error :field field :message message))
 
+(-> lsp-edit--object (t string) json-object)
 (defun lsp-edit--object (value field)
   "Require a JSON object VALUE for FIELD."
   (unless (json-object-p value)
     (lsp-edit--invalid field "Expected a protocol object."))
   value)
 
+(-> lsp-edit--array (t string) vector)
 (defun lsp-edit--array (value field)
   "Require a JSON array VALUE for FIELD."
   (unless (and (vectorp value) (not (stringp value)))
     (lsp-edit--invalid field "Expected a protocol array."))
   value)
 
+(-> lsp-edit--string (t string) string)
 (defun lsp-edit--string (value field)
   "Require a nonempty string VALUE for FIELD."
   (unless (and (stringp value) (plusp (length value)))
     (lsp-edit--invalid field "Expected a nonempty protocol string."))
   value)
 
+(-> lsp-edit--uri (t) string)
 (defun lsp-edit--uri (value)
   "Require an absolute URI without interpreting it as a host pathname."
   (lsp-edit--string value "uri")
@@ -69,6 +58,7 @@
       (lsp-edit--invalid "uri" "Expected an absolute document URI.")))
   value)
 
+(-> lsp-edit--position-offset (string t) integer)
 (defun lsp-edit--position-offset (text position)
   "Validate a UTF-16 POSITION and return its character offset in TEXT."
   (lsp-edit--object position "position")
@@ -98,6 +88,7 @@
       (incf index))
     (lsp-edit--invalid "position" "Position lies outside the snapshot or splits a surrogate pair.")))
 
+(-> lsp-edit--range (string t) (values integer integer))
 (defun lsp-edit--range (text range)
   "Return start and end offsets for RANGE in TEXT, rejecting reversed ranges."
   (lsp-edit--object range "range")
@@ -106,6 +97,7 @@
     (when (> start end) (lsp-edit--invalid "range" "Edit range is reversed."))
     (values start end)))
 
+(-> lsp-edit--annotation (json-object json-object json-object) json-object)
 (defun lsp-edit--annotation (object annotations result)
   "Copy and validate OBJECT's optional annotation reference into RESULT."
   (multiple-value-bind (identifier present-p) (json-get-present object "annotationId")
@@ -116,6 +108,7 @@
       (setf (gethash "annotationId" result) identifier)))
   result)
 
+(-> lsp-edit--annotations (json-object) json-object)
 (defun lsp-edit--annotations (edit)
   "Validate change annotations, preserving their approval metadata."
   (let ((annotations (json-get edit "changeAnnotations" (json-object))))
@@ -136,6 +129,8 @@
      annotations)
     annotations))
 
+(-> lsp-edit--text-operation (t t t &key (:snapshot (option function))
+                                      (:annotations json-object)) json-object)
 (defun lsp-edit--text-operation (uri version edits &key snapshot annotations)
   "Normalize simultaneous edits against a caller-provided immutable snapshot."
   (lsp-edit--uri uri)
@@ -181,6 +176,7 @@
       (json-object "kind" "text" "uri" uri "version" version
                    "snapshotVersion" current-version "edits" normalized))))
 
+(-> lsp-edit--resource-operation (json-object json-object) json-object)
 (defun lsp-edit--resource-operation (operation annotations)
   "Normalize one create, rename or delete operation with its standard options."
   (let* ((kind (json-get operation "kind"))
@@ -275,6 +271,7 @@ EDIT yields an empty proposal. Only UTF-16 is negotiated."
       (json-object "operations" (coerce (nreverse operations) 'vector)
                    "annotations" annotations "positionEncoding" position-encoding))))
 
+(-> lsp-edit--apply-text (string vector) string)
 (defun lsp-edit--apply-text (text edits)
   "Apply validated simultaneous EDITS to an in-memory TEXT value only."
   (let ((cursor 0)
@@ -293,12 +290,14 @@ EDIT yields an empty proposal. Only UTF-16 is negotiated."
         (setf cursor (json-get edit "endOffset")))
       (write-string text output :start cursor))))
 
+(-> lsp-edit--uri-below-p (string string) boolean)
 (defun lsp-edit--uri-below-p (uri root)
   "Return true if URI names ROOT or a descendant URI."
   (or (equal uri root)
       (uiop:string-prefix-p (if (uiop:string-suffix-p root "/") root
                                 (concatenate 'string root "/")) uri)))
 
+(-> lsp-edit--virtual-document (string list function) (values t t t))
 (defun lsp-edit--virtual-document (uri history snapshot)
   "Return text, version and kind for URI after HISTORY, newest operation first."
   (if (null history)
