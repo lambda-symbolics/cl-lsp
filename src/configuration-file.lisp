@@ -105,7 +105,7 @@ for anything else."
     (lsp-configuration--fail "The LSP configuration needs an even, proper property list."
                              :pathname pathname :server-name server-name))
   (loop with seen = nil
-        for (key nil) on form by #'cddr
+        for (key nil) on form by (partial #'nthcdr 2)
         do (unless (member key allowed)
              (lsp-configuration--fail (format nil "Unknown LSP configuration key ~S." key)
                                       :pathname pathname :server-name server-name :field key))

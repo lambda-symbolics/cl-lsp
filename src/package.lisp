@@ -1,7 +1,7 @@
 (defpackage #:cl-lsp
   (:documentation "Bounded clients for Language Server Protocol servers over stdio.")
   (:use #:cl)
-  (:import-from #:serapeum #:->)
+  (:import-from #:serapeum #:-> #:partial)
   (:import-from #:argo
                 #:json-object #:json-object-p #:json-get #:json-get-present
                 #:json-false #:json-string= #:json-decode #:json-encode-utf8
