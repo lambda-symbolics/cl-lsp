@@ -12,8 +12,8 @@ model: objects are string-keyed hash tables, arrays are vectors, false is
 =(argo:json-false)=, which =json-get= reads as NIL, and null is NIL.
 
 Clone this repository into your ASDF source registry and install the dependencies
-with Quicklisp, or run =qlot install= in the checkout for the locked dependencies.
-Then load the system:
+with Quicklisp, or run =./script/bootstrap= in the checkout for the locked
+dependencies. Then load the system:
 
 #+begin_src lisp
 (asdf:load-system :cl-lsp)
@@ -204,13 +204,25 @@ and explicit false uses =yason:false=. Decoded false is retained internally as
 =:json-false= for lossless re-encoding. =json-get= presents it as =nil=;
 =json-get-present= additionally returns whether the key exists.
 
-* Tests
+* Development
 
-Run =./script/check= from the checkout, or =sbcl --script script/check= on
-Windows. The same cases run through =(asdf:test-system :cl-lsp)= after loading
-the dependencies. They cover framing, actual subprocess lifecycle and cleanup,
-UTF-16 synchronization, diagnostic source independence, client reuse/restart,
-application identity, file URIs, and JSON value preservation.
+#+BEGIN_SRC sh
+./script/bootstrap
+./script/check
+./script/check --fix
+#+END_SRC
+
+=./script/check= runs the tests, then checks the source with
+[[https://github.com/lambda-symbolics/cheque][cheque]] as =cheque.sexp=
+configures it. =--fix= skips the tests and repairs what cheque can repair.
+cheque and its tools are development dependencies: =checks/qlfile= lists them,
+and the check installs them on first use into =~/.cache/cheque/tools/=.
+
+The tests also run through =(asdf:test-system :cl-lsp)= after loading the
+dependencies, which is the way to run them on Windows. They cover framing,
+actual subprocess lifecycle and cleanup, UTF-16 synchronization, diagnostic
+source independence, client reuse/restart, application identity, file URIs, and
+JSON value preservation.
 
 * License
 
