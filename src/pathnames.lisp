@@ -58,9 +58,9 @@ outside it or no marker is found."
                         (uiop:pathname-directory-pathname path))))
     (unless (uiop:string-prefix-p (namestring workspace) (namestring directory))
       (return-from lsp-project-root workspace))
-    (loop repeat *lsp-maximum-root-depth*
-          for candidate = directory
+    (loop for candidate = directory
             then (uiop:pathname-parent-directory-pathname candidate)
+          repeat *lsp-maximum-root-depth*
           when (some (lambda (marker) (lsp--marker-present-p candidate marker))
                      markers)
             return candidate
