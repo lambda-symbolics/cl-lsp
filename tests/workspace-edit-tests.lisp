@@ -148,6 +148,77 @@
                                  (vector (edit-tests--document-change source #() version)))
                     :snapshot (lambda (uri) (declare (ignore uri)) (values "x" 3)))))
        "noninteger and false versions do not pass as null")))
+  (let* ((a "file:///a") (b "file:///b") (c "file:///c") (d "file:///d")
+         (gone     "file:///gone")
+         (calls    (make-hash-table :test #'equal))
+         (snapshot (lambda (uri)
+                     (incf (gethash uri calls 0))
+                     (cond ((equal uri a)
+                            (values "abc" 7))
+                           ((equal uri gone)
+                            (values "remove" nil))
+                           (t
+                            (values nil nil)))))
+         (edit     (json-object
+                    "documentChanges"
+                    (vector (edit-tests--document-change a (vector (edit-tests--edit 0 1 "long")) 7)
+                            (json-object "kind" "rename" "oldUri" a "newUri" b)
+                            (edit-tests--document-change b (vector (edit-tests--edit 6 6 "!")) 7)
+                            (json-object "kind" "create" "uri" c)
+                            (edit-tests--document-change c (vector (edit-tests--edit 0 0 "first")
+                                                                 (edit-tests--edit 0 0 "second")))
+                            (json-object "kind" "delete" "uri" gone)
+                            (json-object "kind" "rename" "oldUri" b "newUri" d))))
+         (plan     (lsp-normalize-workspace-edit edit :snapshot snapshot)))
+    (clrhash calls)
+    (let ((effects (lsp-materialize-workspace-plan plan :snapshot snapshot)))
+      (tests--assert (equal (map 'list (lambda (effect) (json-get effect "uri")) effects)
+                            (list a b c gone d)) "final effects retain first-touch order")
+      (tests--assert (equal (map 'list (lambda (effect) (json-get effect "text")) effects)
+                            '(nil nil "firstsecond" nil "longbc!"))
+                     "ordered edits, equal-position inserts, creates, deletes and rename chains materialize")
+      (tests--assert (and (equal (json-get (aref effects 4) "originUri") a)
+                         (= (json-get (aref effects 4) "version") 7)
+                         (null (json-get (aref effects 2) "originUri")))
+                     "content origins and versions follow renames while creates have no donor")
+      (tests--assert (loop for count being the hash-values of calls always (= count 1))
+                     "each initial URI is observed once during materialization"))
+    (tests--assert
+     (edit-tests--refused-p
+      (lambda () (lsp-materialize-workspace-plan
+                  plan :snapshot (lambda (uri)
+                                   (if (equal uri a) (values "abc" 8) (values nil nil))))))
+     "materialization rejects stale versioned snapshots")
+    (dolist (operation
+             (list (json-object "kind" "create" "uri" a)
+                   (json-object "kind" "delete" "uri" b)
+                   (json-object "kind" "rename" "oldUri" b "newUri" c)
+                   (json-object "kind" "rename" "oldUri" a "newUri" gone)
+                   (json-object "kind" "unknown" "uri" a)
+                   (json-object "kind" "text" "uri" a "edits"
+                                (vector (json-object "startOffset" 2 "endOffset" 1 "newText" "x")))
+                   (json-object "kind" "text" "uri" a "edits"
+                                (vector (json-object "startOffset" "0" "endOffset" 1 "newText" "x")))
+                   (json-object "kind" "text" "uri" a "edits"
+                                (vector (json-object "startOffset" 0 "endOffset" 2 "newText" "x")
+                                        (json-object "startOffset" 1 "endOffset" 3 "newText" "y")))))
+      (tests--assert
+       (edit-tests--refused-p
+        (lambda () (lsp-materialize-workspace-plan
+                    (json-object "positionEncoding" "utf-16" "operations"
+                                 (vector (json-object "kind" "create" "uri" c) operation))
+                    :snapshot snapshot)))
+       "invalid later operations fail the whole pure materialization"))
+    (dolist (operation
+             (list (json-object "kind" "create" "uri" a "options" (json-object "ignoreIfExists" t))
+                   (json-object "kind" "delete" "uri" b "options" (json-object "ignoreIfNotExists" t))
+                   (json-object "kind" "rename" "oldUri" a "newUri" gone
+                                "options" (json-object "ignoreIfExists" t))))
+      (tests--assert
+       (zerop (length (lsp-materialize-workspace-plan
+                       (json-object "positionEncoding" "utf-16" "operations" (vector operation))
+                       :snapshot snapshot)))
+       "ignored resource operations produce no effects")))
   nil)
 
 (-> test-lsp-workspace-edit-conditional-resources nil null)
@@ -190,6 +261,15 @@
                                              "documentChanges" (vector change)) :snapshot snapshot)
                                "operations")) 1)
                    "the ordered versioned representation takes precedence over legacy changes")
+    (let ((plan (lsp-normalize-workspace-edit
+                 (json-object "documentChanges"
+                              (vector change (json-object "kind" "delete" "uri" folder)))
+                 :snapshot snapshot)))
+      (tests--assert (= (length (json-get plan "operations")) 2)
+                     "normalization supports folder resource overlays")
+      (tests--assert
+       (edit-tests--refused-p (lambda () (lsp-materialize-workspace-plan plan :snapshot snapshot)))
+       "regular-file materialization rejects folders before returning any effects"))
     (let ((*lsp-maximum-workspace-operations* 1))
       (tests--assert
        (edit-tests--refused-p

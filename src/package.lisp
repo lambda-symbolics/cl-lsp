@@ -63,7 +63,7 @@
    #:lsp-client-supports-p #:lsp-client-query
    #:lsp-protocol-error #:lsp-protocol-error-field
    #:lsp-unsupported #:lsp-unsupported-operation
-   #:lsp-normalize-workspace-edit
+   #:lsp-normalize-workspace-edit #:lsp-materialize-workspace-plan
    #:*lsp-maximum-workspace-operations* #:*lsp-maximum-workspace-edits*
    #:lsp-client-prepare-rename #:lsp-client-rename
    #:lsp-client-code-actions #:lsp-client-resolve-code-action

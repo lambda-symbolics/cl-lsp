@@ -123,6 +123,21 @@ when presenting a proposal. The consumer observes affected resources, authorizes
 operations, verifies resource preconditions and applies the complete proposal
 through its own revision-aware resource protocol.
 
+Call =lsp-materialize-workspace-plan= with a normalized plan and the same initial
+=:snapshot= function to obtain final regular-file effects. The normalizer and
+materializer share the ordered overlay interpreter. Each effect contains =uri=,
+=text= (NIL for a deleted file), =kind= (="file"= or ="missing"=), =version= and
+=originUri=. The origin is the initial file supplying the content through edits
+and rename chains; creates have no origin. Effects follow first-touch order,
+with one final state per affected URI. Ignored resource operations have no effect.
+
+Materialization checks create/rename collisions, missing sources, document
+versions and normalized text offsets before returning effects. Folder snapshots
+signal =lsp-protocol-error=; folder overlays are supported by normalization only.
+No files are published by either function. Authorize every affected URI, check
+fresh host revisions, preserve permissions using content origins, and publish
+the complete effect vector through the host's resource transaction protocol.
+
 Configure =*lsp-maximum-workspace-operations*= (4096 by default) and
 =*lsp-maximum-workspace-edits*= (16384 simultaneous edits per document) to bound
 proposal normalization. Limit failures identify the affected protocol field.

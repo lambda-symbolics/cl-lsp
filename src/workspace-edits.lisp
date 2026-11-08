@@ -221,57 +221,44 @@ EDIT yields an empty proposal. Only UTF-16 is negotiated."
   (when (null edit) (setf edit (json-object)))
   (lsp-edit--object edit "workspaceEdit")
   (let ((annotations (lsp-edit--annotations edit))
-        (operations  nil)
-        (history     nil)
-        (initial     (make-hash-table :test #'equal)))
-    (labels ((initial-document (uri)
-               (multiple-value-bind (entry present-p) (gethash uri initial)
-                 (unless present-p
-                   (setf entry (multiple-value-list
-                                (if snapshot (funcall snapshot uri) (values nil nil)))
-                         (gethash uri initial) entry))
-                 (values (first entry) (second entry) (third entry))))
-
-             (current-document (uri)
-               (lsp-edit--virtual-document uri history #'initial-document))
-
-             (text-operation (uri version edits)
-               (let ((operation (lsp-edit--text-operation
-                                 uri version edits :snapshot #'current-document
-                                 :annotations                annotations)))
-                 (multiple-value-bind (text current-version) (current-document uri)
-                   (push (json-object "kind" "snapshot" "uri" uri "version" current-version
-                                      "text" (lsp-edit--apply-text text (json-get operation "edits")))
-                         history))
-                 (push operation operations))))
-      (multiple-value-bind (changes changes-p) (json-get-present edit "changes")
-        (multiple-value-bind (documents documents-p) (json-get-present edit "documentChanges")
-          ;; Prefer the versioned, ordered representation when both are supplied.
-          (when (and changes-p (not documents-p))
-            (lsp-edit--object changes "changes")
-            (when (> (hash-table-count changes) *lsp-maximum-workspace-operations*)
-              (lsp-edit--invalid "changes" "Workspace operation limit exceeded."))
-            (dolist (uri (sort (loop for uri being the hash-keys of changes collect uri) #'string<))
-              (text-operation uri nil (gethash uri changes))))
-          (when documents-p
-            (lsp-edit--array documents "documentChanges")
-            (when (> (length documents) *lsp-maximum-workspace-operations*)
-              (lsp-edit--invalid "documentChanges" "Workspace operation limit exceeded."))
-            (loop for operation across documents
-                  do (lsp-edit--object operation "documentChange")
-                     (if (nth-value 1 (gethash "kind" operation))
-                         (let ((resource (lsp-edit--resource-operation operation annotations)))
-                           (push resource operations)
-                           (push resource history))
-                         (let ((document (lsp-edit--object (json-get operation "textDocument")
-                                                          "textDocument")))
-                           (unless (nth-value 1 (gethash "version" document))
-                             (lsp-edit--invalid "version" "TextDocumentEdit requires a version field."))
-                           (text-operation (json-get document "uri")
-                                           (gethash "version" document)
-                                           (json-get operation "edits"))))))))
-      (json-object "operations" (coerce (nreverse operations) 'vector)
-                   "annotations" annotations "positionEncoding" position-encoding))))
+        (operations  nil))
+    (multiple-value-bind (current-document advance effects)
+        (lsp-edit--materializer snapshot annotations :validate-resources nil)
+      (declare (ignore effects))
+      (labels ((text-operation (uri version edits)
+                 (let ((operation (lsp-edit--text-operation
+                                   uri version edits :snapshot current-document
+                                   :annotations                annotations)))
+                   (funcall advance operation)
+                   (push operation operations))))
+       (multiple-value-bind (changes changes-p) (json-get-present edit "changes")
+         (multiple-value-bind (documents documents-p) (json-get-present edit "documentChanges")
+           ;; Prefer the versioned, ordered representation when both are supplied.
+           (when (and changes-p (not documents-p))
+             (lsp-edit--object changes "changes")
+             (when (> (hash-table-count changes) *lsp-maximum-workspace-operations*)
+               (lsp-edit--invalid "changes" "Workspace operation limit exceeded."))
+             (dolist (uri (sort (loop for uri being the hash-keys of changes collect uri) #'string<))
+               (text-operation uri nil (gethash uri changes))))
+           (when documents-p
+             (lsp-edit--array documents "documentChanges")
+             (when (> (length documents) *lsp-maximum-workspace-operations*)
+               (lsp-edit--invalid "documentChanges" "Workspace operation limit exceeded."))
+             (loop for operation across documents
+                   do (lsp-edit--object operation "documentChange")
+                      (if (nth-value 1 (gethash "kind" operation))
+                          (let ((resource (lsp-edit--resource-operation operation annotations)))
+                             (funcall advance resource)
+                             (push resource operations))
+                          (let ((document (lsp-edit--object (json-get operation "textDocument")
+                                                           "textDocument")))
+                            (unless (nth-value 1 (gethash "version" document))
+                              (lsp-edit--invalid "version" "TextDocumentEdit requires a version field."))
+                            (text-operation (json-get document "uri")
+                                            (gethash "version" document)
+                                            (json-get operation "edits"))))))))
+       (json-object "operations" (coerce (nreverse operations) 'vector)
+                    "annotations" annotations "positionEncoding" position-encoding)))))
 
 (-> lsp-edit--apply-text (string vector) string)
 (defun lsp-edit--apply-text (text edits)
@@ -286,10 +273,16 @@ EDIT yields an empty proposal. Only UTF-16 is negotiated."
                                            (< (json-get left "endOffset")
                                               (json-get right "endOffset")))))))))
     (with-output-to-string (output)
-      (dolist (edit ordered)
-        (write-string text output :start cursor :end (json-get edit "startOffset"))
-        (write-string (json-get edit "newText") output)
-        (setf cursor (json-get edit "endOffset")))
+        (dolist (edit ordered)
+          (let ((start (json-get edit "startOffset"))
+                (end   (json-get edit "endOffset")))
+            (unless (and (integerp start) (integerp end)
+                         (<= cursor start end (length text))
+                         (stringp (json-get edit "newText")))
+              (lsp-edit--invalid "edits" "Invalid or overlapping normalized text offsets."))
+            (write-string text output :start cursor :end start)
+            (write-string (json-get edit "newText") output)
+            (setf cursor end)))
       (write-string text output :start cursor))))
 
 (-> lsp-edit--uri-below-p (string string) boolean)
@@ -299,16 +292,16 @@ EDIT yields an empty proposal. Only UTF-16 is negotiated."
       (uiop:string-prefix-p (if (uiop:string-suffix-p root "/") root
                                 (concatenate 'string root "/")) uri)))
 
-(-> lsp-edit--virtual-document (string list function) (values t t t))
+(-> lsp-edit--virtual-document (string list function) (values t t t t))
 (defun lsp-edit--virtual-document (uri history snapshot)
-  "Return text, version and kind for URI after HISTORY, newest operation first."
+  "Return text, version, kind and origin URI after HISTORY, newest operation first."
   (if (null history)
       (multiple-value-bind (text version kind) (funcall snapshot uri)
         (let ((kind (or kind (if text ':file ':missing))))
           (unless (and (member kind '(:file :folder :missing))
                        (if (eq kind ':file) (stringp text) (null text)))
             (lsp-edit--invalid "snapshot" "Snapshot content and resource kind disagree."))
-          (values text version kind)))
+          (values text version kind (and (eq kind ':file) uri))))
       (let* ((operation (first history))
              (older     (rest history))
              (kind      (json-get operation "kind"))
@@ -317,26 +310,27 @@ EDIT yields an empty proposal. Only UTF-16 is negotiated."
              (ignore    (and options (eq (json-get options "ignoreIfExists") t))))
         (cond
           ((and (equal kind "snapshot") (equal uri (json-get operation "uri")))
-           (values (json-get operation "text") (json-get operation "version") ':file))
+           (values (json-get operation "text") (json-get operation "version")
+                   ':file (json-get operation "originUri")))
           ((and (equal kind "create") (equal uri (json-get operation "uri")))
-           (multiple-value-bind (text version resource-kind)
+           (multiple-value-bind (text version resource-kind origin)
                (lsp-edit--virtual-document uri older snapshot)
              (if (and ignore (not overwrite) (not (eq resource-kind ':missing)))
-                 (values text version resource-kind)
-                 (values "" nil ':file))))
+                 (values text version resource-kind origin)
+                 (values "" nil ':file nil))))
           ((and (equal kind "delete") (lsp-edit--uri-below-p uri (json-get operation "uri")))
            (values nil nil ':missing))
           ((equal kind "rename")
            (let ((old (json-get operation "oldUri"))
                  (new (json-get operation "newUri")))
-             (multiple-value-bind (target target-version target-kind)
+             (multiple-value-bind (target target-version target-kind target-origin)
                  (if (and ignore (not overwrite))
                      (lsp-edit--virtual-document new older snapshot)
                      (values nil nil ':missing))
                (cond
                  ((and ignore (not overwrite) (not (eq target-kind ':missing)))
                   (if (equal uri new)
-                      (values target target-version target-kind)
+                      (values target target-version target-kind target-origin)
                       (lsp-edit--virtual-document uri older snapshot)))
                  ((lsp-edit--uri-below-p uri new)
                   (lsp-edit--virtual-document
@@ -347,3 +341,138 @@ EDIT yields an empty proposal. Only UTF-16 is negotiated."
                   (lsp-edit--virtual-document uri older snapshot))))))
           (t
            (lsp-edit--virtual-document uri older snapshot))))))
+
+(-> lsp-edit--materializer ((option function) json-object &key (:validate-resources boolean))
+                          (values function function function))
+(defun lsp-edit--materializer (snapshot annotations &key (validate-resources t))
+  "Return current-document, advance and final-effects closures for one pure pass.
+Normalization defers resource preconditions to the host; final materialization
+validates them against the supplied snapshots before returning any effects."
+  (let ((initial (make-hash-table :test #'equal))
+        (history nil)
+        (order   nil))
+    (labels ((initial-document (uri)
+               (multiple-value-bind (entry present-p) (gethash uri initial)
+                 (unless present-p
+                   (setf entry (multiple-value-list
+                                (if snapshot (funcall snapshot uri) (values nil nil)))
+                         (gethash uri initial) entry))
+                 (when (and validate-resources (eq (third entry) ':folder))
+                   (lsp-edit--invalid "snapshot" "Final file effects do not support folder snapshots."))
+                 (unless (or (null (second entry)) (typep (second entry) '(signed-byte 32)))
+                   (lsp-edit--invalid "snapshotVersion" "Invalid snapshot document version."))
+                 (values (first entry) (second entry) (third entry))))
+
+             (current-document (uri)
+               (lsp-edit--virtual-document uri history #'initial-document))
+
+             (touch (uri)
+               (pushnew uri order :test #'equal))
+
+             (advance (operation)
+               (lsp-edit--object operation "operation")
+               (let ((kind (json-get operation "kind"))
+                     (uri  (json-get operation "uri")))
+                 (cond
+                   ((equal kind "text")
+                    (lsp-edit--uri uri)
+                    (multiple-value-bind (text version resource-kind origin)
+                        (current-document uri)
+                      (unless (eq resource-kind ':file)
+                        (lsp-edit--invalid "snapshot" "Cannot edit an absent document or folder."))
+                      (let ((expected (json-get operation "version"))
+                            (edits    (lsp-edit--array (json-get operation "edits") "edits")))
+                        (unless (or (null expected) (typep expected '(signed-byte 32)))
+                          (lsp-edit--invalid "version" "Invalid document version."))
+                        (when (and expected (not (eql expected version)))
+                          (lsp-edit--invalid "version" "Workspace edit document version is stale or unknown."))
+                        (when (> (length edits) *lsp-maximum-workspace-edits*)
+                          (lsp-edit--invalid "edits" "Document text edit limit exceeded."))
+                        (loop for edit across edits
+                              do (lsp-edit--object edit "textEdit")
+                                 (unless (and (typep (json-get edit "startOffset") '(integer 0))
+                                              (typep (json-get edit "endOffset") '(integer 0)))
+                                   (lsp-edit--invalid "edits" "Text offsets must be nonnegative integers.")))
+                        (push (json-object "kind" "snapshot" "uri" uri "version" version
+                                           "originUri" origin
+                                           "text" (lsp-edit--apply-text text edits)) history)))
+                    (touch uri))
+                   (t
+                    ;; Validate resource syntax/options in the same boundary as normalization.
+                    (setf operation (lsp-edit--resource-operation operation annotations))
+                    (unless validate-resources
+                      (push operation history)
+                      (return-from advance nil))
+                    (let* ((options   (json-get operation "options"))
+                           (overwrite (and options (eq (json-get options "overwrite") t)))
+                           (ignore    (and options (eq (json-get options "ignoreIfExists") t))))
+                      (cond
+                        ((equal kind "create")
+                         (let ((existing (nth-value 2 (current-document uri))))
+                           (cond
+                             ((and ignore (not overwrite) (not (eq existing ':missing)))
+                              (return-from advance nil))
+                             ((and (not overwrite) (not (eq existing ':missing)))
+                              (lsp-edit--invalid "create" "Create target already exists."))
+                             ((eq existing ':folder)
+                              (lsp-edit--invalid "create" "Cannot overwrite a folder with a text file."))))
+                         (touch uri))
+                        ((equal kind "delete")
+                         (when (eq (nth-value 2 (current-document uri)) ':missing)
+                           (if (and options (eq (json-get options "ignoreIfNotExists") t))
+                               (return-from advance nil)
+                               (lsp-edit--invalid "delete" "Delete target does not exist.")))
+                         (touch uri))
+                        ((equal kind "rename")
+                         (let* ((old         (json-get operation "oldUri"))
+                                (new         (json-get operation "newUri"))
+                                (source-kind (nth-value 2 (current-document old)))
+                                (target-kind (nth-value 2 (current-document new))))
+                           (when (eq source-kind ':missing)
+                             (lsp-edit--invalid "rename" "Rename source does not exist."))
+                           (when (equal old new) (return-from advance nil))
+                           (when (and (not overwrite) (not (eq target-kind ':missing)))
+                             (if ignore
+                                 (return-from advance nil)
+                                 (lsp-edit--invalid "rename" "Rename target already exists.")))
+                           (when (and (eq source-kind ':folder) (lsp-edit--uri-below-p new old))
+                             (lsp-edit--invalid "rename" "Cannot move a folder inside itself."))
+                           (touch old)
+                           (touch new))))
+                     (push operation history))))))
+
+             (effects ()
+               (map 'vector
+                    (lambda (uri)
+                      (multiple-value-bind (text version kind origin) (current-document uri)
+                        (json-object "uri" uri "text" text "version" version
+                                     "kind" (string-downcase (symbol-name kind))
+                                     "originUri" origin)))
+                    (reverse order))))
+      (values #'current-document #'advance #'effects))))
+
+(-> lsp-materialize-workspace-plan (json-object &key (:snapshot (option function))) vector)
+(defun lsp-materialize-workspace-plan (plan &key snapshot)
+  "Return final regular-file effects for a normalized PLAN without host publication.
+
+SNAPSHOT has the normalization text/version contract and is called at most once
+per initial URI. Folder snapshots signal LSP-PROTOCOL-ERROR; normalization alone
+supports folder overlays. Effects occur in first-touch order and contain uri,
+text (NIL for missing), version, kind and originUri. Origin identifies the initial
+file supplying the final content through rename chains and edits; a newly
+created file has no origin. The host owns authorization, fresh revision checks,
+permissions and atomic publication. Invalid operations signal LSP-PROTOCOL-ERROR
+before any effects are returned."
+  (lsp-edit--object plan "plan")
+  (unless (equal (json-get plan "positionEncoding") "utf-16")
+    (lsp-edit--invalid "positionEncoding" "Only negotiated UTF-16 positions are supported."))
+  (let ((operations (lsp-edit--array (json-get plan "operations") "operations")))
+    (when (> (length operations) *lsp-maximum-workspace-operations*)
+      (lsp-edit--invalid "operations" "Workspace operation limit exceeded."))
+    (multiple-value-bind (current advance effects)
+        (lsp-edit--materializer snapshot (lsp-edit--annotations
+                                          (json-object "changeAnnotations"
+                                                       (or (json-get plan "annotations") (json-object)))))
+      (declare (ignore current))
+      (loop for operation across operations do (funcall advance operation))
+      (funcall effects))))
