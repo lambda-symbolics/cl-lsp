@@ -3,24 +3,27 @@
 (-> test-lsp-workspace-plan-composition () boolean)
 (defun test-lsp-workspace-plan-composition ()
   "Compose ordered resource overlays without mutation and capture every addressed URI."
-  (let* ((source "file:///source.txt")
-         (target "file:///target.txt")
-         (missing "file:///missing.txt")
-         (calls (make-hash-table :test #'equal))
+  (let* ((source      "file:///source.txt")
+         (target      "file:///target.txt")
+         (missing     "file:///missing.txt")
+         (calls       (make-hash-table :test #'equal))
          (annotations (json-object "move" (json-object "label" "Move" "needsConfirmation" t)))
-         (plan (json-object "positionEncoding" "utf-16" "annotations" annotations
-                            "operations" (vector (json-object "kind" "delete" "uri" target))))
-         (operations (vector (json-object "kind" "rename" "oldUri" source "newUri" target
-                                          "annotationId" "move"))))
+         (plan        (json-object "positionEncoding" "utf-16" "annotations" annotations
+                                   "operations" (vector (json-object "kind" "delete" "uri" target))))
+         (operations  (vector (json-object "kind" "rename" "oldUri" source "newUri" target
+                                           "annotationId" "move"))))
     (flet ((snapshot (uri)
              (incf (gethash uri calls 0))
              (cond
-               ((equal uri source) (values "source" 1 ':file))
-               ((equal uri target) (values "target" 1 ':file))
-               (t (values nil nil ':missing)))))
+               ((equal uri source)
+                (values "source" 1 ':file))
+               ((equal uri target)
+                (values "target" 1 ':file))
+               (t
+                (values nil nil ':missing)))))
       (let* ((combined (lsp-workspace-plan-append plan operations :snapshot #'snapshot))
-             (effects (lsp-materialize-workspace-plan combined :snapshot #'snapshot))
-             (effect (find target effects :key (lambda (row) (json-get row "uri")) :test #'equal)))
+             (effects  (lsp-materialize-workspace-plan combined :snapshot #'snapshot))
+             (effect   (find target effects :key (lambda (row) (json-get row "uri")) :test #'equal)))
         (tests--assert (= 1 (length (json-get plan "operations"))) "input plan is unchanged")
         (tests--assert (and (equal "source" (json-get effect "text"))
                             (equal source (json-get effect "originUri"))) "ordered donor origin")

@@ -53,7 +53,7 @@
    #:lsp-manager-configurations-load #:lsp-manager-status
    #:lsp-no-matching-server #:lsp-no-matching-server-path
    #:*lsp-maximum-root-depth* #:lsp-project-root
-   #:lsp-path-uri #:lsp-position
+   #:lsp-path-uri #:lsp-file-uri-components #:lsp-position
    #:*lsp-configuration-version* #:*lsp-configuration-maximum-bytes*
    #:*lsp-configuration-maximum-servers* #:*lsp-configuration-maximum-timeout-seconds*
    #:*lsp-configuration-maximum-string-characters*
@@ -63,6 +63,7 @@
    #:lsp-configuration-error-cause #:lsp-read-configurations
    #:lsp-text-position
    #:*lsp-query-operations* #:*lsp-maximum-symbol-query-characters*
+   #:lsp-query-input-kind
    #:lsp-client-supports-p #:lsp-client-query
    #:lsp-protocol-error #:lsp-protocol-error-field
    #:lsp-unsupported #:lsp-unsupported-operation

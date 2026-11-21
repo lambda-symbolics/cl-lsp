@@ -26,6 +26,39 @@
         (lsp--windows-path-uri name)
         (concatenate 'string "file://" (lsp--encode-uri-path name)))))
 
+(-> lsp-file-uri-components (string) (values string t t t))
+(defun lsp-file-uri-components (value)
+  "Decode a file URI, returning path, authority, query and fragment.
+Preserve the leading slash and drive colon; a literal plus is not a space.
+Reject malformed escapes and UTF-8. No native pathname conversion, filesystem
+access, authority policy or authorization is performed."
+  (handler-case
+      (let* ((uri  (quri:uri value))
+             (path (quri:uri-path uri)))
+        (unless (and (equalp "file" (quri:uri-scheme uri))
+                     (stringp path) (uiop:string-prefix-p "/" path)
+                     (every (lambda (character) (<= 33 (char-code character) 126)) value))
+          (error 'lsp-error :message "Expected an absolute ASCII file URI."))
+        ;; Quri's form decoder treats plus as space and accepts a trailing percent.
+        ;; Validate escapes first, then decode each plus-separated path segment.
+        (loop for index below (length path)
+              when (char= (char path index) #\%)
+                do (unless (and (< (+ index 2) (length path))
+                                (digit-char-p (char path (1+ index)) 16)
+                                (digit-char-p (char path (+ index 2)) 16))
+                     (error 'lsp-error :message "Malformed file URI escape."))
+                   (incf index 2))
+        (let ((decoded (format nil "~{~A~^+~}"
+                               (mapcar (lambda (part) (quri:url-decode part :encoding ':utf-8))
+                                       (uiop:split-string path :separator "+")))))
+          (when (find #\Null decoded)
+            (error 'lsp-error :message "File URI path contains a null character."))
+          (values decoded (quri:uri-authority uri) (quri:uri-query uri) (quri:uri-fragment uri))))
+    (lsp-error (condition)
+      (error condition))
+    (error ()
+      (error 'lsp-error :message "Malformed file URI or UTF-8 path."))))
+
 
 ;;;; -- Project Roots --
 

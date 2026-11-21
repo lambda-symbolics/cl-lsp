@@ -83,6 +83,13 @@
 (-> test-lsp-client-queries nil null)
 (defun test-lsp-client-queries ()
   "Test capability gates and request parameters of read-only queries."
+  (dolist (entry '(("definition" :position) ("references" :position) ("hover" :position)
+                   ("implementation" :position) ("type-definition" :position)
+                   ("document-symbols" :document) ("workspace-symbols" :query)))
+    (tests--assert (eq (second entry) (lsp-query-input-kind (first entry)))
+                   "query catalog specifies the input contract"))
+  (tests--assert (handler-case (progn (lsp-query-input-kind "unknown") nil) (lsp-error () t))
+                 "unknown query input contract is refused")
   (with-test-directory (root)
     (let* ((path     (lsp-client-tests--write root "file.txt" "text"))
            (document (make-instance 'lsp-document :path path :text "text"))

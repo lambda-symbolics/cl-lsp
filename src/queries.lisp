@@ -37,14 +37,22 @@ outside TEXT or split a UTF-16 surrogate pair."
 ;;;; -- Capability-Gated Queries --
 
 (defparameter *lsp-query-operations*
-  '(("definition" "textDocument/definition" "definitionProvider")
-    ("references" "textDocument/references" "referencesProvider")
-    ("hover" "textDocument/hover" "hoverProvider")
-    ("implementation" "textDocument/implementation" "implementationProvider")
-    ("type-definition" "textDocument/typeDefinition" "typeDefinitionProvider")
-    ("document-symbols" "textDocument/documentSymbol" "documentSymbolProvider")
-    ("workspace-symbols" "workspace/symbol" "workspaceSymbolProvider"))
-  "Read-only query names, their LSP methods, and the server capability each needs.")
+  '(("definition" "textDocument/definition" "definitionProvider" :position)
+    ("references" "textDocument/references" "referencesProvider" :position)
+    ("hover" "textDocument/hover" "hoverProvider" :position)
+    ("implementation" "textDocument/implementation" "implementationProvider" :position)
+    ("type-definition" "textDocument/typeDefinition" "typeDefinitionProvider" :position)
+    ("document-symbols" "textDocument/documentSymbol" "documentSymbolProvider" :document)
+    ("workspace-symbols" "workspace/symbol" "workspaceSymbolProvider" :query))
+  "Query names, protocol methods, capabilities and input kinds.")
+
+(-> lsp-query-input-kind (string) symbol)
+(defun lsp-query-input-kind (operation)
+  "Return :POSITION, :DOCUMENT or :QUERY for OPERATION, rejecting unknown names."
+  (let ((entry (assoc operation *lsp-query-operations* :test #'equal)))
+    (unless entry
+      (error 'lsp-error :message (format nil "Unknown LSP query operation ~S." operation)))
+    (fourth entry)))
 
 (defparameter *lsp-maximum-symbol-query-characters* 1024
   "The longest workspace symbol query sent to a server.")
@@ -68,7 +76,7 @@ unknown operation, a capability the server did not advertise, or missing input."
     (unless (lsp-client-supports-p client (third specification))
       (error 'lsp-error :message (format nil "Language server does not support ~A." operation)))
     (cond
-      ((string= operation "workspace-symbols")
+      ((eq (lsp-query-input-kind operation) ':query)
        (unless (and (stringp query) (<= (length query) *lsp-maximum-symbol-query-characters*))
          (error 'lsp-error
                 :message (format nil "A workspace symbol query must be a string of at most ~D characters."
@@ -77,7 +85,7 @@ unknown operation, a capability the server did not advertise, or missing input."
       (t
        (setf (gethash "textDocument" params)
              (json-object "uri" (lsp-path-uri (lsp-document-path document))))
-       (unless (string= operation "document-symbols")
+       (when (eq (lsp-query-input-kind operation) ':position)
          (unless (json-object-p position)
            (error 'lsp-error :message (format nil "LSP ~A needs a position." operation)))
          (setf (gethash "position" params) position))))
