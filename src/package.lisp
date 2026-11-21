@@ -50,6 +50,8 @@
    #:lsp-manager #:lsp-manager-client-name #:lsp-manager-client-version
    #:lsp-manager-client #:lsp-manager-close #:lsp-manager-clients
    #:lsp-manager-configurations #:lsp-manager-loaded-p #:lsp-manager-lock
+   #:lsp-manager-configurations-load #:lsp-manager-status
+   #:lsp-no-matching-server #:lsp-no-matching-server-path
    #:*lsp-maximum-root-depth* #:lsp-project-root
    #:lsp-path-uri #:lsp-position
    #:*lsp-configuration-version* #:*lsp-configuration-maximum-bytes*

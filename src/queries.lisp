@@ -114,7 +114,8 @@ enabled server handles PATH."
     (let ((configurations (lsp-configurations-for-path (lsp-manager-configurations manager)
                                                        path)))
       (unless configurations
-        (error 'lsp-error :message "No enabled language server handles this file."))
+        (error 'lsp-no-matching-server :path path
+               :message                      "No enabled language server handles this file."))
       (mapcar (lambda (configuration)
                 (let ((name (lsp-server-configuration-name configuration)))
                   (handler-case

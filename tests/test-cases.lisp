@@ -19,6 +19,7 @@
                          test-lsp-client-independent-diagnostic-sources
                          test-lsp-client-manager-reuse-restart-and-cleanup
                          test-lsp-document-snapshots
+                         test-lsp-manager-state
                          test-lsp-file-uris
                          test-lsp-project-roots
                          test-lsp-json-boundaries
