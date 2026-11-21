@@ -34,6 +34,8 @@
          :documentation "Last synchronized complete text.")
    (version :initform 1 :accessor lsp-document-version
             :documentation "Monotonically increasing document version.")
+   (identity :initform (gensym "LSP-DOCUMENT-") :reader lsp-document-identity
+             :documentation "Opaque open-document identity, independent of version reuse.")
    (push-report :initform      (make-instance 'lsp-diagnostic-report)
                 :accessor      lsp-document-push-report
                 :documentation "Latest published diagnostics for this version.")
@@ -53,6 +55,8 @@
                    :documentation "Version advertised in initialize clientInfo.")
    (transport :initform nil :accessor lsp-client-transport
               :documentation "The external JSON-RPC transport, when started.")
+   (session :initform (gensym "LSP-SESSION-") :accessor lsp-client-session
+            :documentation "Opaque lifecycle identity, replaced whenever the client closes.")
    (capabilities :initform (json-object) :accessor lsp-client-capabilities
                  :documentation "Static capabilities returned by initialize.")
    (documents :initform (make-hash-table :test #'equal) :reader lsp-client-documents
@@ -265,7 +269,13 @@
                  (ignore-errors (lsp-transport-notify transport "exit" nil)))
             (lsp-transport-close transport)))
       (setf (lsp-client-transport client) nil)))
-  (clrhash (lsp-client-documents client))
+  (flet ((forget-documents ()
+           (clrhash (lsp-client-documents client))
+           (setf (lsp-client-session client) (gensym "LSP-SESSION-"))))
+    (if detach-p
+        (forget-documents)
+        (with-lock-held ((lsp-client-lock client))
+          (forget-documents))))
   nil)
 
 (-> lsp-manager-close (lsp-manager &key (:detach-p boolean)) null)

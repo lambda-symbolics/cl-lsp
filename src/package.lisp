@@ -41,6 +41,7 @@
    #:lsp-client-root #:lsp-client-configuration #:lsp-client-capabilities
    #:lsp-client-documents #:lsp-client-lock
    #:lsp-client-sync #:lsp-client-resync #:lsp-client-diagnostics
+   #:lsp-client-document-snapshot #:lsp-client-session-snapshot #:lsp-client-snapshot-current-p
    #:lsp-document #:lsp-document-path #:lsp-document-text #:lsp-document-version
    #:lsp-document-push-report #:lsp-document-pull-report #:lsp-document-diagnostics
    #:lsp-diagnostic-report #:lsp-diagnostic-report-items

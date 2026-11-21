@@ -30,16 +30,7 @@
 (-> lsp-semantic--snapshot (lsp-client (option function)) function)
 (defun lsp-semantic--snapshot (client snapshot)
   "Use explicit SNAPSHOT, otherwise copy synchronized document text and versions."
-  (or snapshot
-      (let ((documents (make-hash-table :test #'equal)))
-        (with-lock-held ((lsp-client-lock client))
-          (maphash (lambda (uri document)
-                     (setf (gethash uri documents)
-                           (cons (lsp-document-text document) (lsp-document-version document))))
-                   (lsp-client-documents client)))
-        (lambda (uri)
-          (let ((entry (gethash uri documents)))
-            (values (first entry) (rest entry)))))))
+  (or snapshot (lsp-client-document-snapshot client)))
 
 (-> lsp-semantic--normalize (lsp-client t (option function)) json-object)
 (defun lsp-semantic--normalize (client edit snapshot)
