@@ -373,6 +373,9 @@ validates them against the supplied snapshots before returning any effects."
                (lsp-edit--object operation "operation")
                (let ((kind (json-get operation "kind"))
                      (uri  (json-get operation "uri")))
+                 (when validate-resources
+                   (dolist (field (if (equal kind "rename") '("oldUri" "newUri") '("uri")))
+                     (initial-document (lsp-edit--uri (json-get operation field)))))
                  (cond
                    ((equal kind "text")
                     (lsp-edit--uri uri)
@@ -455,9 +458,9 @@ validates them against the supplied snapshots before returning any effects."
 (defun lsp-materialize-workspace-plan (plan &key snapshot)
   "Return final regular-file effects for a normalized PLAN without host publication.
 
-SNAPSHOT has the normalization text/version contract and is called at most once
-per initial URI. Folder snapshots signal LSP-PROTOCOL-ERROR; normalization alone
-supports folder overlays. Effects occur in first-touch order and contain uri,
+SNAPSHOT has the normalization text/version contract and is called exactly once
+for every addressed initial URI, including conditional operations with no effect.
+Folder snapshots signal LSP-PROTOCOL-ERROR. Effects occur in first-touch order and contain uri,
 text (NIL for missing), version, kind and originUri. Origin identifies the initial
 file supplying the final content through rename chains and edits; a newly
 created file has no origin. The host owns authorization, fresh revision checks,
@@ -476,3 +479,36 @@ before any effects are returned."
       (declare (ignore current))
       (loop for operation across operations do (funcall advance operation))
       (funcall effects))))
+
+(-> lsp-edit--copy-json (t) t)
+(defun lsp-edit--copy-json (value)
+  "Copy JSON containers and strings without retaining mutable input aliases."
+  (cond
+    ((stringp value)
+     (copy-seq value))
+    ((hash-table-p value)
+     (let ((copy (make-hash-table :test #'equal)))
+       (maphash (lambda (key item)
+                  (setf (gethash (copy-seq key) copy) (lsp-edit--copy-json item))) value)
+       copy))
+    ((vectorp value)
+     (map 'vector #'lsp-edit--copy-json value))
+    (t
+     value)))
+
+(-> lsp-workspace-plan-append (json-object vector &key (:snapshot function)) json-object)
+(defun lsp-workspace-plan-append (plan operations &key snapshot)
+  "Return a detached PLAN followed by normalized OPERATIONS, validated in order.
+Resource operations use the standard LSP shape. Validate the combined overlay
+against SNAPSHOT, preserving annotations and origin tracking without publishing
+files. A willRenameFiles response alone never implies a physical rename."
+  (lsp-edit--object plan "plan")
+  (lsp-edit--array operations "operations")
+  (let ((prior (lsp-edit--array (json-get plan "operations") "operations")))
+    (when (> (+ (length prior) (length operations)) *lsp-maximum-workspace-operations*)
+      (lsp-edit--invalid "operations" "Workspace operation limit exceeded."))
+    (let ((result (lsp-edit--copy-json plan)))
+      (setf (gethash "operations" result)
+            (concatenate 'vector (json-get result "operations") (lsp-edit--copy-json operations)))
+      (lsp-materialize-workspace-plan result :snapshot snapshot)
+      result)))

@@ -29,6 +29,7 @@
                          test-lsp-workspace-edit-normalization
                          test-lsp-workspace-edit-overlay
                          test-lsp-workspace-edit-conditional-resources
+                         test-lsp-workspace-plan-composition
                          test-lsp-semantic-proposals
                          test-lsp-file-operation-filters
                          test-lsp-file-move-source-kind

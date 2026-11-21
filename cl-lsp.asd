@@ -37,6 +37,7 @@
                               (:file "semantic-edit-tests")
                               (:file "document-snapshot-tests")
                               (:file "manager-state-tests")
+                              (:file "plan-composition-tests")
                               (:file "test-cases"))))
   :perform     (asdf:test-op (operation component)
                  (declare (ignore operation component))
